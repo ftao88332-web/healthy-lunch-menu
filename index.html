@@ -1003,7 +1003,9 @@ async function request(path, method, body, timeoutMs) {
   } catch (e) {}
   if (resp.status === 401) throw new ApiError('API Key 无效或已过期（401）：' + detail, 'auth');
   if (resp.status === 429) {
-    gateCool(3000 + Math.random() * 2000);   // 撞了就整体冷却，避免同批一起再撞
+    /* 智谱的 1302 是「速率限制」：冷却太短会刚放开就又撞上。
+       给 5–8 秒，且是**全局**的 —— 所有请求一起等，比各自退避更有效。 */
+    gateCool(5000 + Math.random() * 3000);
     throw new ApiError('触发了并发/频率限制（429），稍后会自动重试', 'rate');
   }
   if (USE_BACKEND && resp.status === 404) {
@@ -1205,7 +1207,7 @@ async function pumpImages() {
   imgPumping = true;
   while (imgQueue.length) {
     await loadOneImage(imgQueue.shift());
-    await sleep(250);                 // 张与张之间留个间隔，别贴着打
+    await sleep(400);                 // 张与张之间留个间隔，别贴着打
   }
   imgPumping = false;
 }
@@ -1240,7 +1242,8 @@ function loadOneImage(job) {
         clearTimeout(timer);
         if (done) return;
         tries++;
-        if (tries < IMG_TRIES) setTimeout(attempt, 1500 * tries);   // 退避后重试
+        /* 失败多半是限流：退避要够长（3s / 6s），太短会刚放开又撞上 */
+        if (tries < IMG_TRIES) setTimeout(attempt, 3000 * tries);
         else finish(false);
       };
       im.src = job.url;
@@ -2057,10 +2060,11 @@ async function doGenWeek() {
   if (USE_BACKEND) return genWeekViaBackend(plan, total);
 
   const days = [];
-  /* 直连模式下用的是访客自己的 Key，不存在多用户争抢，所以可以比后端
-     （MAX_CONCURRENCY=2）更激进：3 天一批，5 天从 3 批压到 2 批。
-     注意：后端模式不走这里（上面已 return），所以不会给小程序带来 429 风险。 */
-  const batch = 3;
+  /* ⚠️ 实测：智谱对单个账号的并发上限就是 **2** —— 同时发 3 个请求时，
+     第 3 个必定被 429（错误码 1302「您的账户已达到速率限制」）。
+     所以这里不要为了提速调高：调高只会让 1/3 的请求撞限流、退避重试，
+     总耗时反而比 2 天一批更长。后端模式不走这里（上面已 return）。 */
+  const batch = 2;
   try {
     for (let i = 0; i < total; i += batch) {
       const slice = DAY_PLAN.slice(i, i + batch);
