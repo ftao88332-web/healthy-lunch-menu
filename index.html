@@ -1148,16 +1148,72 @@ async function generateImage(day) {
   return url;
 }
 
-/* 与 后端/app/images.py 的 build_prompt 保持一致 */
+/* 配图提示词：**必须用英文**。
+   FLUX 这类扩散模型对中文理解很差 —— 实测拿纯中文提示词要「烤青花鱼美食照」，
+   出来是一张毫不相干的动漫人物。所以这里内置常见食材/做法的中英对照，
+   把中文菜名与食材尽量译成英文；少量没命中的中文混在英文里不影响整体效果。
+
+   注意：后端 images.py 用的是智谱 cogview（中文友好），
+   两边的提示词**不再要求逐字一致**（那边保持中文）。 */
+const IMG_EN = {
+  /* 荤菜（长词必须排在短词前面，否则「虾仁」会被「虾」先吃掉） */
+  '青花鱼': 'mackerel', '鲭鱼': 'mackerel', '沙丁鱼': 'sardine', '秋刀鱼': 'saury',
+  '龙利鱼': 'sole fish', '鳕鱼': 'cod', '三文鱼': 'salmon', '鱼柳': 'fish fillet',
+  '鱼': 'fish',
+  '白虾': 'shrimp', '甜虾': 'shrimp', '虾仁': 'shrimp', '虾': 'shrimp',
+  '鸡腿肉': 'chicken thigh', '鸡胸肉': 'chicken breast', '鸡腿': 'chicken thigh',
+  '鸡胸': 'chicken breast', '鸡肉': 'chicken',
+  '牛里脊': 'beef tenderloin', '牛腱': 'beef shank', '牛霖': 'beef', '牛肉': 'beef',
+  '猪里脊': 'pork loin', '猪肉': 'pork',
+  /* 主食 */
+  '藜麦': 'quinoa', '糙米': 'brown rice', '大麦': 'barley', '燕麦米': 'oat rice',
+  '全麦意面': 'whole wheat pasta', '鹰嘴豆': 'chickpeas', '白腰豆': 'white beans',
+  '小扁豆': 'lentils', '杂豆': 'mixed beans', '全麦': 'whole wheat',
+  /* 蔬菜 */
+  '西兰花': 'broccoli', '西兰苔': 'broccolini', '花椰菜': 'cauliflower',
+  '羽衣甘蓝': 'kale', '菠菜': 'spinach', '芥蓝': 'chinese kale', '芝麻菜': 'arugula',
+  '彩椒': 'bell pepper', '甜椒': 'bell pepper', '番茄': 'tomato', '圣女果': 'cherry tomato',
+  '紫甘蓝': 'purple cabbage', '卷心菜': 'cabbage', '洋葱': 'onion', '黄瓜': 'cucumber',
+  '胡萝卜': 'carrot', '南瓜': 'pumpkin', '茄子': 'eggplant', '西葫芦': 'zucchini',
+  '口蘑': 'button mushroom', '菌菇': 'mushroom', '蘑菇': 'mushroom',
+  '生菜': 'lettuce', '芹菜': 'celery', '芦笋': 'asparagus', '秋葵': 'okra',
+  /* 脂肪与乳制品 */
+  '橄榄油': 'olive oil', '牛油果': 'avocado', '核桃': 'walnut', '杏仁': 'almond',
+  '腰果': 'cashew', '芝麻': 'sesame', '南瓜籽': 'pumpkin seeds',
+  '菲达奶酪': 'feta cheese', '奶酪': 'cheese', '酸奶': 'yogurt',
+  /* 调味与风味词（菜名里常见） */
+  '柠檬': 'lemon', '橙': 'orange', '迷迭香': 'rosemary', '罗勒': 'basil',
+  '百里香': 'thyme', '牛至': 'oregano', '欧芹': 'parsley', '茴香': 'fennel',
+  '大蒜': 'garlic', '蒜': 'garlic', '香草': 'herbs', '时蔬': 'vegetables',
+  '三色': 'tricolor', '五色': 'colorful', '沙拉': 'salad',
+  /* 菜名里的连接词与修饰：不译会留下零散汉字，干扰模型理解 */
+  '特级初榨': 'extra virgin', '樱桃番茄': 'cherry tomato', '樱桃': 'cherry',
+  '去皮': 'skinless', '彩蔬': 'colorful vegetables', '橙香': 'orange',
+  '佐': 'with', '酱': 'sauce', '配': 'with', '与': 'and', '紫': 'purple', '红': 'red',
+  /* 做法 */
+  '香煎': 'pan-seared', '白灼': 'poached', '焯水': 'blanched', '凉拌': 'cold tossed',
+  '烤': 'roasted', '蒸': 'steamed', '煮': 'boiled', '炖': 'braised', '拌': 'tossed'
+};
+
+/* 把中文串里的已知词换成英文；括号里的补充说明（如「青花鱼（鲭鱼，净肉）」）先丢掉 */
+function trEn(s) {
+  let out = String(s || '').replace(/[（(][^）)]*[）)]/g, ' ');
+  Object.keys(IMG_EN).forEach((k) => {
+    if (out.indexOf(k) >= 0) out = out.split(k).join(' ' + IMG_EN[k] + ' ');
+  });
+  return out.replace(/[（）]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
 function imgPrompt(day) {
-  const ing = (day.ing || []).filter((i) => i.c !== 'season').slice(0, 7).map((i) => i.n);
+  const ing = (day.ing || []).filter((i) => i.c !== 'season').slice(0, 7)
+    .map((i) => trEn(i.n)).filter(Boolean);
   const lines = [
-    '美食摄影：45 度俯拍，浅色陶瓷盘，木质餐桌，自然侧光，柔和阴影，干净背景，摆盘精致。',
-    '菜品：' + (day.title || '') + (day.sub ? '，' + day.sub : ''),
-    '主要食材：' + ing.join('、'),
-    '烹饪方式：' + (day.method || ''),
-    '地中海健康餐风格，食材新鲜，色彩自然，无多余装饰。',
-    '要求：画面中不要出现任何文字、字母、logo、水印、人物和手。'
+    'Professional food photography, 45-degree overhead shot, light ceramic plate on a rustic wooden table, natural side light, soft shadows, clean background, elegant plating.',
+    'Dish: ' + trEn(day.title || '') + (day.sub ? ', ' + trEn(day.sub) : ''),
+    'Main ingredients: ' + ing.join(', '),
+    'Cooking method: ' + trEn(day.method || ''),
+    'Mediterranean healthy cuisine, fresh ingredients, natural colors, no extra decoration.',
+    'No text, no letters, no numbers, no logo, no watermark, no people, no hands.'
   ];
   return lines.join('\n');
 }
