@@ -1823,7 +1823,10 @@ async function doGenWeek() {
   if (USE_BACKEND) return genWeekViaBackend(plan, total);
 
   const days = [];
-  const batch = 2;                      // 与后端 MAX_CONCURRENCY 对齐，避免 429
+  /* 直连模式下用的是访客自己的 Key，不存在多用户争抢，所以可以比后端
+     （MAX_CONCURRENCY=2）更激进：3 天一批，5 天从 3 批压到 2 批。
+     注意：后端模式不走这里（上面已 return），所以不会给小程序带来 429 风险。 */
+  const batch = 3;
   try {
     for (let i = 0; i < total; i += batch) {
       const slice = DAY_PLAN.slice(i, i + batch);
