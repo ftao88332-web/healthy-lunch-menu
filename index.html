@@ -390,6 +390,10 @@ body.readonly [data-act="add"]{display:none !important}
 .sp-c:hover{border-color:var(--blue-l);color:var(--navy)}
 .sp-c.on{background:var(--navy);border-color:var(--navy);color:#fff}
 .sp-t{margin-left:auto;font-size:12px;color:var(--ink-3)}
+/* 采购页里的人数步进器：比详情页那档紧凑一点，换成白底好嵌在浅蓝面板里 */
+.shoppick .stepper{background:#fff;border:1px solid #DCE7F2;padding:2px}
+.shoppick .stepper button{width:26px;height:26px;font-size:15px}
+.shoppick .stepper .num{min-width:38px;font-size:14px}
 
 /* ---------- 底部标签栏（移动端） ---------- */
 .tabbar{
@@ -1091,16 +1095,56 @@ async function generateDay(meta, plan, avoid, extra) {
   return day;
 }
 
-/* 图片：返回签名 URL。CDN 不带 CORS 头，所以只能 <img> 显示、不能 fetch 成 blob。
-   好在签名有效期 7 天，缓存 URL 字符串即可复用。 */
+/* 图片模型：
+   - 直连模式用 Pollinations 的 FLUX —— 免费、**不需要 API Key**、CORS 完全放行
+     （实测 `Access-Control-Allow-Origin: *`，连 `Origin: null` 的 file:// 也能用）。
+   - 后端模式仍由服务端决定，前端只负责显示。
+   注意它和 cogview 的调用方式完全不同：cogview 是「POST 一下、返回一个带签名的链接」，
+   而 Pollinations 是 **URL 本身就是图片** —— 所以这里省掉了整条
+   「下载落盘 / 签名 7 天过期 / 定时清理」的链路。 */
+const IMG_MODEL = USE_BACKEND ? (MODELS.image || 'cogview-3-flash') : 'flux';
+const IMG_API = 'https://image.pollinations.ai/prompt/';
+
+/* 同一道菜必须稳定出同一张图，否则每次刷新都换一张脸。
+   所以 seed 由菜名 + 做法派生（FNV-1a），不用随机数。 */
+function imgSeed(day) {
+  const s = (day.title || '') + '|' + (day.method || '');
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  return h % 1000000;
+}
+
+/* 直连模式的图片地址：确定性推导，可反复使用，永不失效 */
+function imgUrlFor(day) {
+  const wh = String(MODELS.imageSize || '1024x1024').split('x');
+  return IMG_API + encodeURIComponent(imgPrompt(day)) +
+    '?model=' + IMG_MODEL +
+    '&width=' + (parseInt(wh[0], 10) || 1024) +
+    '&height=' + (parseInt(wh[1], 10) || 1024) +
+    '&nologo=true&seed=' + imgSeed(day);
+}
+
+/* 「生成」= 用 <img> 预加载。Pollinations 是同步吐图的，
+   加载成功就说明图好了，顺便把它的 CDN 缓存预热（CDN 缓存一年）。 */
+function preloadImage(url, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const im = new Image();
+    const t = setTimeout(() => {
+      im.src = '';
+      reject(new ApiError('配图生成超时，请重试'));
+    }, timeoutMs || 120000);
+    im.onload = () => { clearTimeout(t); resolve(); };
+    im.onerror = () => { clearTimeout(t); reject(new ApiError('配图生成失败，请稍后重试')); };
+    im.src = url;
+  });
+}
+
 async function generateImage(day) {
-  const prompt = imgPrompt(day);
-  const data = await post('/images/generations', {
-    model: MODELS.image || 'cogview-3-flash',
-    prompt, size: MODELS.imageSize || '1024x1024'
-  }, 180000);
-  const url = data && data.data && data.data[0] && data.data[0].url;
-  if (!url) throw new ApiError('上游没有返回图片地址');
+  const url = imgUrlFor(day);
+  await preloadImage(url);
   return url;
 }
 
@@ -1132,7 +1176,10 @@ const state = {
   toast: null,
   /* 采购清单要汇总哪几天：null / 空数组 = 全部；
      否则是选中的 dayId 数组。采购常常只买一两天，写死整周并不好用。 */
-  shopDays: null
+  shopDays: null,
+  /* 采购清单按几人份算：null = 跟随菜单里存的份数（通常是 16）；
+     非空则是用户在采购页临时调的 —— 只影响采购量，不改菜谱本身。 */
+  shopServ: null
 };
 let toastTimer = null;
 
@@ -1160,7 +1207,9 @@ function isFallback(plan) { return !state.menus[plan || state.plan] && !!FALLBAC
 
 function imgUrl(plan, dayId) {
   const rec = state.imgs[plan + ':' + dayId];
-  if (rec && rec.url && Date.now() - rec.ts < IMG_TTL) return rec.url;
+  /* 直连模式的图片地址是确定性推导出来的，**永不过期**，不必判 TTL；
+     只有后端模式那种带签名的链接才需要（签名约 7 天失效）。 */
+  if (rec && rec.url && (!USE_BACKEND || Date.now() - rec.ts < IMG_TTL)) return rec.url;
   /* 后端模式：菜单里自带 img_key，配图已随镜像烘焙在容器里，
      直接拼地址即可 —— 不走签名、不会过期、也不花钱。 */
   if (USE_BACKEND) {
@@ -1506,10 +1555,16 @@ function shopPicked() {
   return all.filter((d) => sel.indexOf(d.id) >= 0);
 }
 
+/* 采购清单实际按几人份算：用户在采购页调过就用他调的，否则跟随菜单里存的份数 */
+function shopServings(days) {
+  if (state.shopServ != null) return state.shopServ;
+  return (days && days.length) ? (days[0].servings || COMPANY) : COMPANY;
+}
+
 function shopData() {
   const m = menu(state.plan);
   const days = shopPicked();
-  const serv = days.length ? (days[0].servings || COMPANY) : COMPANY;
+  const serv = shopServings(days);
   const map = {};
   days.forEach((d) => {
     (d.ing || []).forEach((it) => {
@@ -1554,6 +1609,20 @@ function renderShop() {
   });
   html += '<span class="sp-t">' + (allOn ? '当前：全周' : '当前：' +
     esc(picked.map((d) => d.wk).join('、'))) + '</span></div>';
+
+  /* 就餐人数：菜单是按 16 人公司餐生成的，但实际常常要按当天到岗人数买。
+     这里调只影响采购量，不会改动菜谱本身。 */
+  html += '<div class="shoppick"><span class="sp-l">就餐人数</span>' +
+    '<div class="stepper">' +
+      '<button data-act="shopserv" data-arg="-1" aria-label="减少一人">−</button>' +
+      '<span class="num">' + serv + '</span>' +
+      '<button data-act="shopserv" data-arg="1" aria-label="增加一人">＋</button>' +
+    '</div>' +
+    '<span class="sp-c' + (state.shopServ == null ? ' on' : '') +
+      '" data-act="shopservset" data-arg="0">跟随菜单</span>' +
+    '<span class="sp-c' + (state.shopServ === 1 ? ' on' : '') +
+      '" data-act="shopservset" data-arg="1">1 人份</span>' +
+    '<span class="sp-t">共 ' + serv + ' 份 · 下面的采购量按此换算</span></div>';
 
   if (!items.length) {
     html += '<div class="empty"><div class="et">没有选中任何一天</div>' +
@@ -1628,23 +1697,6 @@ function renderAbout() {
     '<li>生成后校验：总重区间、蔬菜克重、步骤数量、是否拿到来源，不达标会提示。</li>' +
     '<li>每份菜谱都附<b>实际检索到的来源链接</b>，可自行核对。</li></ul></div>';
 
-  html += '<div class="card ab"><h4>这份网页版是怎么跑的</h4><ul>' +
-    (USE_BACKEND
-      ? '<li><b>后端模式</b>：网页不持有任何 API Key，请求全部发到 ' +
-        '<span style="font-size:12px">' + esc(API_BASE) + '</span>，Key 只存在于服务端。</li>'
-      : '<li><b>直连模式</b>：浏览器直接调用智谱开放平台 API，不需要服务器、域名和备案。' +
-        '代价是页面里内置的 Key 等于公开。</li>') +
-    '<li>菜谱由 <b>' + esc(USE_BACKEND ? '服务端配置的主厨模型' : (MODELS.chat || 'glm-4.7')) +
-    '</b> 联网检索生成，配图由 <b>' + esc(MODELS.image || 'cogview-3-flash') + '</b> 生成（免费模型）。</li>' +
-    '<li>没有网络、后端连不上或 Key 失效时，自动回落到<b>内置的预生成菜谱</b>，不会白屏。</li>' +
-    '<li>菜单、份数、配图都保存在浏览器本地，下次打开还在。</li>' +
-    (USE_BACKEND
-      ? '<li>后端镜像里已烘焙好预置菜单与配图，<b>新访客打开就能看到，不消耗任何额度</b>。</li>'
-      : '<li>想公开分享又不暴露 Key？改 <code class="mono">CONF.MODE</code> 为 ' +
-        '<code class="mono">backend</code> 并指向自己的后端，再用 ' +
-        '<code class="mono">tools/make_public_bundle.js</code> 打包。</li>') +
-    '</ul></div>';
-
   html += '</div></section></div>';
   $('#app').innerHTML = html;
 }
@@ -1683,9 +1735,15 @@ function renderSetup() {
       '获取地址：智谱开放平台 → API Keys。</div></div>' +
       '<div class="setrow"><label for="m">主厨模型</label>' +
       '<select id="m">' +
-        opt('glm-4.7', model) + opt('glm-4.5-air', model) + opt('glm-4-flash', model) +
+        opt('glm-4.7', model, 'glm-4.7 · 质量最好（默认）') +
+        opt('glm-4.7-flash', model, 'glm-4.7-flash · 永久免费，公开分享首选') +
+        opt('glm-5.3-flash', model, 'glm-5.3-flash · 新一代，更快') +
+        opt('glm-4.5-air', model, 'glm-4.5-air · 均衡') +
+        opt('glm-4-flash', model, 'glm-4-flash · 最省') +
+        opt('glm-z1-flash', model, 'glm-z1-flash · 推理型，慢但细致') +
       '</select>' +
-      '<div class="hint">glm-4.7 质量最好（默认）；glm-4.5-air 更快更省；glm-4-flash 最便宜，适合公开分享时压成本。</div></div>' +
+      '<div class="hint">只有 glm-4.7 是旗舰级；<b>glm-4.7-flash 永久免费</b>，公开分享时用它最划算。' +
+      '以上都支持联网检索。换模型只影响之后新生成的菜谱，已生成的不会重算。</div></div>' +
       '<div style="display:flex;gap:10px;flex-wrap:wrap">' +
         '<button class="btn sm" data-act="savset">保存设置</button>' +
         '<button class="btn ghost sm" data-act="testkey">测试连接</button>' +
@@ -1707,15 +1765,19 @@ function renderSetup() {
     '</ul></div>';
 
   html += '<div class="card ab" style="margin-top:16px"><h4>关于配图</h4><ul>' +
-    '<li>配图由 <b>' + esc(MODELS.image || 'cogview-3-flash') + '</b> 生成，属于<b>免费</b>模型，不额外计费。</li>' +
-    '<li>生成约需 8–10 秒；同一个菜重复生成会命中上游缓存。</li>' +
-    '<li>图片链接带签名、有效期约 7 天，所以本页缓存的是<b>链接</b>而不是图片本身。</li>' +
-    '<li>图片会带有「AI 生成」标识，这是法规要求，请勿去除。</li></ul></div>';
+    '<li>配图由 <b>' + esc(IMG_MODEL) + '</b> 生成，属于<b>免费</b>模型，不额外计费' +
+    (USE_BACKEND ? '。' : '，也不需要 API Key。') + '</li>' +
+    '<li>生成约需 5–15 秒；同一道菜重复生成会命中缓存，不会换一张脸。</li>' +
+    (USE_BACKEND
+      ? '<li>图片链接带签名、有效期约 7 天，所以本页缓存的是<b>链接</b>而不是图片本身。</li>'
+      : '<li>图片地址由菜名与做法确定性推导，<b>永不过期</b>，无需下载到本地。</li>') +
+    '<li>页面会在配图上标注「AI 生成配图」，这是法规要求，请勿去除。</li></ul></div>';
   html += '</div></div></section></div>';
   $('#app').innerHTML = html;
 }
-function opt(v, cur) {
-  return '<option value="' + v + '"' + (v === cur ? ' selected' : '') + '>' + v + '</option>';
+function opt(v, cur, label) {
+  return '<option value="' + v + '"' + (v === cur ? ' selected' : '') + '>' +
+    esc(label || v) + '</option>';
 }
 
 /* ---------- 弹层 / 进度 / toast ---------- */
@@ -1774,6 +1836,9 @@ function renderLayers() {
   }
 }
 
+/* 上一次渲染的视图，用来判断「这次是不是换页了」 */
+let lastView = null;
+
 function render() {
   renderChrome();
   if (state.view === 'home') renderHome();
@@ -1782,7 +1847,13 @@ function render() {
   else if (state.view === 'setup') renderSetup();
   else renderAbout();
   renderLayers();
-  window.scrollTo(0, 0);
+  /* 只有「换页」才回到顶部。切换方案、调就餐人数、改采购范围都是在同一页里
+     重渲染，无条件 scrollTo(0,0) 会让用户瞬间丢失当前位置 ——
+     手机上尤其难受：刚滑到下面点一下，直接被弹回顶端。 */
+  if (lastView !== state.view) {
+    lastView = state.view;
+    window.scrollTo(0, 0);
+  }
 }
 
 /* =========================================================================
@@ -2078,8 +2149,9 @@ async function regenViaBackend(d, id) {
 async function doImage(id) {
   const d = day(state.plan, id);
   if (!d || state.busy) return;
-  busy('正在生成配图', '按这道菜的食材与做法生成图片，约需 8–10 秒…', 40,
-    '使用免费图像模型 ' + (MODELS.image || 'cogview-3-flash') + '，不额外计费。');
+  busy('正在生成配图', '按这道菜的食材与做法生成图片，约需 5–15 秒…', 40,
+    '使用免费图像模型 ' + IMG_MODEL +
+    (USE_BACKEND ? '，不额外计费。' : '，不需要 API Key、不额外计费。'));
   try {
     if (USE_BACKEND) {
       const res = await runJob('/api/image/one',
@@ -2376,6 +2448,20 @@ document.addEventListener('click', function (ev) {
     case 'shopall':
       state.shopDays = null; render();
       break;
+    /* 就餐人数：只改采购量，不动菜谱本身 */
+    case 'shopserv': {
+      const cur = shopServings(shopPicked());
+      const next = Math.max(1, Math.min(999, cur + parseInt(el.getAttribute('data-arg'), 10)));
+      state.shopServ = next;
+      render();
+      break;
+    }
+    case 'shopservset': {
+      const v = parseInt(el.getAttribute('data-arg'), 10);
+      state.shopServ = v > 0 ? v : null;      // 0 = 跟随菜单里存的份数
+      render();
+      break;
+    }
     default: break;
   }
 });
@@ -2486,10 +2572,11 @@ window.HL = {
   doGenWeek, doSwap, doRegen, doImage, openSwapSheet, openAddSheet, filterSheetList,
   pickFromSheet, customFromSheet, changeServ, setServ, testKey, toast,
   DEFAULT_KEY, API_BASE, LS, IMG_TTL, chatJson, post, generateDay, generateImage,
+  IMG_MODEL, IMG_API, imgUrlFor, imgSeed, preloadImage, shopServings,
   FALLBACK, LIB, CAT_ORDER, GRAM_RANGE, TOTAL_RANGE, PLANS, DAY_PLAN, PROMPTS, MODELS, THUMBS,
   /* 后端模式相关（供测试与调试） */
   CONF, USE_BACKEND, READONLY, request, runJob, backendUrl, imgUrl, syncFromBackend, isFallback,
-  /* 界面层（供测试与调试；renderLayers 单独导出是因为 render() 会顺带重置滚动位置） */
+  /* 界面层（供测试与调试） */
   renderLayers, busy, busyMsg, busyErr, openAddSheet, openSwapSheet, doRestore,
   fitTotal, FIT_ORDER
 };
