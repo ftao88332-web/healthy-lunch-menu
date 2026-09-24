@@ -1,0 +1,2468 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0E3D5C">
+<title>AI 主厨推荐 · 零油烟地中海健康午餐</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='16' fill='%230E3D5C'/><path d='M9 23C9 14 14 9 23 9c0 9-5 14-14 14z' fill='%234CB37C'/><path d='M11 21C14.5 17.5 18 14 21 11.5' stroke='%23fff' stroke-width='1.5' fill='none' stroke-linecap='round'/></svg>">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --navy:#0E3D5C; --navy-2:#155E8C; --blue:#1E6E9E; --blue-l:#3C93C0;
+  --green:#3E9E6A; --green-d:#2C7A50; --green-l:#4CB37C;
+  --bg:#F1F7FB; --card:#FFFFFF; --line:#E2ECF3; --line-2:#CFE0EA;
+  --ink:#0F2E42; --ink-2:#4A6B80; --ink-3:#8AA3B2;
+  --warn:#B4690E; --warn-bg:#FDF3E3; --err:#B3322F; --err-bg:#FCEEED;
+  --r:16px; --r-sm:10px;
+  --sh:0 2px 8px rgba(15,46,66,.06), 0 12px 32px -12px rgba(15,46,66,.14);
+  --sh-sm:0 1px 3px rgba(15,46,66,.07);
+  --sans:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Segoe UI",Roboto,sans-serif;
+}
+html,body{height:100%}
+body{
+  font-family:var(--sans); background:var(--bg); color:var(--ink);
+  font-size:15px; line-height:1.6; -webkit-font-smoothing:antialiased;
+}
+img{display:block;max-width:100%}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+input,select{font:inherit;color:inherit}
+a{color:var(--blue);text-decoration:none}
+a:hover{text-decoration:underline}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.wrap{max-width:1120px;margin:0 auto;padding:0 20px}
+
+/* ---------- 顶栏 ---------- */
+.topbar{
+  position:sticky;top:0;z-index:40;background:rgba(255,255,255,.88);
+  backdrop-filter:saturate(180%) blur(14px);border-bottom:1px solid var(--line);
+}
+.topbar .wrap{display:flex;align-items:center;gap:28px;height:64px}
+.brand{display:flex;align-items:center;gap:9px;font-weight:600;font-size:17px;color:var(--navy);letter-spacing:.2px}
+.brand svg{flex:none}
+.nav{display:flex;gap:4px;margin-left:auto}
+.nav button{
+  padding:7px 14px;border-radius:999px;font-size:14px;color:var(--ink-2);
+  transition:background .15s,color .15s;
+}
+.nav button:hover{background:var(--bg);color:var(--ink)}
+.nav button.on{background:var(--navy);color:#fff}
+.topbar .act{display:flex;gap:10px;align-items:center}
+
+/* ---------- 按钮 ---------- */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:7px;
+  padding:11px 22px;border-radius:999px;font-size:14px;font-weight:500;
+  background:var(--green);color:#fff;transition:filter .15s,transform .1s;
+  white-space:nowrap;
+}
+.btn:hover{filter:brightness(1.06)}
+.btn:active{transform:scale(.985)}
+.btn.ghost{background:#fff;color:var(--blue);border:1px solid var(--line-2)}
+.btn.ghost:hover{background:var(--bg);filter:none}
+.btn.navy{background:var(--navy)}
+.btn.sm{padding:8px 15px;font-size:13px}
+.btn.block{width:100%}
+.btn[disabled]{opacity:.5;cursor:not-allowed;filter:none;transform:none}
+
+/* ---------- 首屏 ---------- */
+.hero{
+  position:relative;overflow:hidden;color:#fff;
+  background:linear-gradient(120deg,#0B3350 0%,#12496E 46%,#1C6E9B 100%);
+  border-radius:0 0 28px 28px;
+}
+.hero::after{
+  content:"";position:absolute;right:-160px;top:-120px;width:620px;height:620px;
+  border-radius:50%;background:radial-gradient(circle,rgba(76,179,124,.30),rgba(76,179,124,0) 68%);
+  pointer-events:none;
+}
+.hero .wrap{position:relative;z-index:1;display:grid;grid-template-columns:1.08fr .92fr;gap:44px;
+  padding-top:52px;padding-bottom:56px;align-items:center}
+.hero .eyebrow{
+  display:inline-flex;align-items:center;gap:8px;padding:5px 14px;border-radius:999px;
+  background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22);
+  font-size:13px;letter-spacing:.4px;
+}
+.hero h1{
+  font-size:clamp(30px,4.4vw,50px);line-height:1.16;margin:20px 0 14px;
+  font-weight:600;letter-spacing:-.5px;
+}
+.hero h1 .hl{color:#8FE0B4}
+.hero .lead{font-size:15px;color:rgba(255,255,255,.78);margin-bottom:20px}
+.hero .chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:26px}
+.chip{
+  display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:999px;
+  font-size:13px;background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.2);
+}
+.hero .cta{display:flex;flex-wrap:wrap;gap:12px}
+.hero .cta .btn{background:#fff;color:var(--navy)}
+.hero .cta .btn.ghost{background:rgba(255,255,255,.12);color:#fff;border-color:rgba(255,255,255,.3)}
+.hero .cta .btn.ghost:hover{background:rgba(255,255,255,.2)}
+.hero .cta .btn[disabled]{opacity:.55}
+
+.heroart{position:relative}
+.heroart .frame{
+  position:relative;aspect-ratio:1/1;border-radius:24px;overflow:hidden;
+  background:linear-gradient(140deg,#2E7FA8,#17527A);box-shadow:0 24px 60px -20px rgba(0,0,0,.5);
+}
+.heroart .frame img{width:100%;height:100%;object-fit:cover}
+.heroart .frame .ph{position:absolute;inset:0;display:grid;place-items:center;opacity:.5}
+.heroart .bubble{
+  position:absolute;right:-14px;top:16px;padding:12px 16px;border-radius:16px;
+  background:#fff;color:var(--navy);font-size:14px;font-weight:500;line-height:1.45;
+  box-shadow:0 12px 30px -10px rgba(0,0,0,.35);max-width:190px;
+}
+.heroart .bubble .sub{font-size:12px;font-weight:400;color:var(--ink-3);margin-top:3px}
+.heroart .metrics{
+  position:absolute;left:-18px;bottom:-16px;display:flex;gap:0;border-radius:16px;
+  background:rgba(255,255,255,.97);box-shadow:0 16px 40px -14px rgba(0,0,0,.4);overflow:hidden;
+}
+.heroart .metrics .m{padding:11px 15px;text-align:center;border-right:1px solid var(--line)}
+.heroart .metrics .m:last-child{border-right:none}
+.heroart .metrics .v{font-size:17px;font-weight:600;color:var(--navy);line-height:1.2}
+.heroart .metrics .v .u{font-size:11px;font-weight:400;color:var(--ink-3);margin-left:1px}
+.heroart .metrics .l{font-size:11px;color:var(--ink-3);margin-top:2px}
+
+/* ---------- 通用区块 ---------- */
+main{padding-bottom:120px}
+.sec{margin-top:52px}
+.sec-head{display:flex;align-items:baseline;gap:12px;margin-bottom:18px;flex-wrap:wrap}
+.sec-head h2{
+  font-size:21px;font-weight:600;color:var(--navy);letter-spacing:-.2px;
+  display:flex;align-items:center;gap:9px;
+}
+.sec-head h2::before{content:"";width:4px;height:19px;border-radius:2px;background:var(--green)}
+.sec-head .sub{font-size:13.5px;color:var(--ink-3);margin-left:auto}
+.card{background:var(--card);border-radius:var(--r);box-shadow:var(--sh-sm);border:1px solid var(--line)}
+
+.benefits{display:grid;grid-template-columns:repeat(6,1fr);gap:12px}
+.benefit{
+  background:#fff;border:1px solid var(--line);border-radius:var(--r-sm);
+  padding:18px 10px;text-align:center;transition:box-shadow .18s,transform .18s;
+}
+.benefit:hover{box-shadow:var(--sh);transform:translateY(-2px)}
+.benefit .ic{width:36px;height:36px;margin:0 auto 9px;border-radius:11px;display:grid;place-items:center;
+  background:linear-gradient(140deg,#EAF6EF,#DCEFFB);color:var(--green-d)}
+.benefit .t{font-size:13px;color:var(--ink-2);font-weight:500}
+
+/* ---------- 菜单 ---------- */
+.planbar{display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;align-items:center}
+.planbar .seg{display:flex;background:#fff;border:1px solid var(--line);border-radius:999px;padding:3px}
+.planbar .seg button{padding:8px 18px;border-radius:999px;font-size:13.5px;color:var(--ink-2)}
+.planbar .seg button.on{background:var(--navy);color:#fff;font-weight:500}
+.planbar .meta{font-size:13px;color:var(--ink-3);margin-left:auto}
+.planbar .meta b{color:var(--ink-2);font-weight:500}
+
+.days{display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
+.day{
+  background:#fff;border:1px solid var(--line);border-radius:var(--r);overflow:hidden;
+  cursor:pointer;transition:box-shadow .2s,transform .2s,border-color .2s;text-align:left;
+  display:flex;flex-direction:column;
+}
+.day:hover{box-shadow:var(--sh);transform:translateY(-3px);border-color:var(--line-2)}
+.day .thumb{position:relative;aspect-ratio:4/3;background:var(--bg);overflow:hidden}
+.day .thumb img{width:100%;height:100%;object-fit:cover}
+.day .thumb .ph{position:absolute;inset:0;display:grid;place-items:center}
+.day .thumb .tag{
+  position:absolute;left:10px;top:10px;padding:4px 10px;border-radius:999px;
+  font-size:12px;font-weight:500;color:#fff;background:rgba(14,61,92,.78);backdrop-filter:blur(6px);
+}
+.day .thumb .today{
+  position:absolute;right:10px;top:10px;padding:4px 10px;border-radius:999px;
+  font-size:12px;font-weight:500;color:#fff;background:var(--green);
+}
+.day .body{padding:13px 14px 15px;flex:1;display:flex;flex-direction:column;gap:7px}
+.day .wk{font-size:12px;color:var(--ink-3);letter-spacing:.3px}
+.day .title{font-size:15px;font-weight:600;color:var(--navy);line-height:1.4}
+.day .sub{font-size:12.5px;color:var(--ink-2);line-height:1.45;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.day .foot{display:flex;align-items:center;gap:8px;margin-top:auto;padding-top:9px;border-top:1px dashed var(--line)}
+.day .foot .k{font-size:15px;font-weight:600;color:var(--green-d)}
+.day .foot .k .u{font-size:11px;font-weight:400;color:var(--ink-3);margin-left:1px}
+.day .foot .m{font-size:11.5px;color:var(--ink-3);margin-left:auto}
+
+.empty{
+  padding:64px 24px;text-align:center;color:var(--ink-3);
+  border:1.5px dashed var(--line-2);border-radius:var(--r);background:rgba(255,255,255,.6);
+}
+.empty .et{font-size:16px;color:var(--ink-2);font-weight:500;margin:14px 0 6px}
+.empty .ed{font-size:13.5px;margin-bottom:20px}
+
+/* ---------- 详情 ---------- */
+.dbar{display:flex;align-items:center;gap:12px;margin:22px 0 18px}
+.dbar .back{
+  display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:999px;
+  background:#fff;border:1px solid var(--line);font-size:13.5px;color:var(--ink-2);
+}
+.dbar .back:hover{background:var(--bg);color:var(--ink)}
+.dbar .spacer{margin-left:auto}
+
+.dgrid{display:grid;grid-template-columns:1.02fr .98fr;gap:26px;align-items:start}
+.dhero{position:relative;border-radius:var(--r);overflow:hidden;aspect-ratio:4/3;background:var(--bg);border:1px solid var(--line)}
+.dhero img{width:100%;height:100%;object-fit:cover}
+.dhero .ph{position:absolute;inset:0;display:grid;place-items:center}
+.dhero .badge{
+  position:absolute;left:12px;top:12px;padding:5px 12px;border-radius:999px;font-size:12.5px;
+  font-weight:500;color:#fff;background:rgba(14,61,92,.8);backdrop-filter:blur(6px);
+}
+.dhero .ai{
+  position:absolute;right:12px;top:12px;padding:5px 12px;border-radius:999px;font-size:12px;
+  color:#fff;background:rgba(62,158,106,.92);
+}
+.dhead .wkrow{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.pill{display:inline-flex;align-items:center;padding:4px 12px;border-radius:999px;font-size:12.5px}
+.pill.blue{background:#E8F2F9;color:var(--blue)}
+.pill.green{background:#EAF6EF;color:var(--green-d)}
+.pill.navy{background:var(--navy);color:#fff}
+.dhead h1{font-size:clamp(23px,2.9vw,31px);font-weight:600;color:var(--navy);line-height:1.28;letter-spacing:-.3px}
+.dhead .dsub{font-size:14.5px;color:var(--ink-2);margin-top:8px}
+.dhead .tags{display:flex;gap:7px;flex-wrap:wrap;margin-top:14px}
+.nutri{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:18px}
+.nutri .n{background:#fff;border:1px solid var(--line);border-radius:var(--r-sm);padding:11px 6px;text-align:center}
+.nutri .v{font-size:17px;font-weight:600;color:var(--navy);line-height:1.2}
+.nutri .v .u{font-size:10.5px;font-weight:400;color:var(--ink-3);margin-left:1px}
+.nutri .l{font-size:11px;color:var(--ink-3);margin-top:3px}
+
+.chefsay{
+  display:flex;gap:14px;margin-top:20px;padding:17px 19px;border-radius:var(--r);
+  background:linear-gradient(120deg,#0E3D5C,#1A5B84);color:#fff;
+}
+.chefsay .ico{width:38px;height:38px;flex:none;border-radius:11px;display:grid;place-items:center;
+  background:rgba(255,255,255,.15)}
+.chefsay .t{font-size:12.5px;color:#8FE0B4;font-weight:500;margin-bottom:4px}
+.chefsay .x{font-size:13.5px;color:rgba(255,255,255,.9);line-height:1.65}
+
+.secttl{display:flex;align-items:baseline;gap:10px;margin:34px 0 14px}
+.secttl h3{font-size:16.5px;font-weight:600;color:var(--navy);display:flex;align-items:center;gap:8px}
+.secttl h3::before{content:"";width:3px;height:16px;border-radius:2px;background:var(--green)}
+.secttl .more{font-size:12.5px;color:var(--ink-3);margin-left:auto}
+
+.serve{padding:16px 18px;display:flex;flex-wrap:wrap;gap:14px;align-items:center}
+.serve .lab{font-size:13.5px;color:var(--ink-2);font-weight:500}
+.stepper{display:flex;align-items:center;background:var(--bg);border-radius:999px;padding:3px}
+.stepper button{width:32px;height:32px;border-radius:50%;font-size:17px;color:var(--blue);display:grid;place-items:center}
+.stepper button:hover{background:#fff}
+.stepper .num{min-width:44px;text-align:center;font-weight:600;font-size:15px}
+.serve .quick{display:flex;gap:7px}
+.serve .quick button{padding:6px 13px;border-radius:999px;font-size:12.5px;background:var(--bg);color:var(--ink-2)}
+.serve .quick button.on{background:var(--navy);color:#fff}
+.serve .totals{margin-left:auto;display:flex;gap:20px;font-size:12.5px;color:var(--ink-3)}
+.serve .totals b{display:block;font-size:15px;color:var(--navy);font-weight:600}
+
+.ingwrap{padding:6px 0}
+.inggrp{border-bottom:1px solid var(--line);padding:14px 18px}
+.inggrp:last-child{border-bottom:none}
+.inggt{display:flex;align-items:center;gap:9px;margin-bottom:9px}
+.inggt .cico{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;flex:none}
+.inggt .cn{font-size:13.5px;font-weight:600;color:var(--ink)}
+.inggt .cs{font-size:12px;color:var(--ink-3);margin-left:auto}
+.irow{display:flex;align-items:center;gap:12px;padding:8px 10px;border-radius:var(--r-sm);transition:background .15s}
+.irow:hover{background:var(--bg)}
+.irow.changed{background:#FBF7EC}
+.irow.added{background:#EDF7F1}
+.irow .nm{flex:1;min-width:0}
+.irow .n1{font-size:14px;color:var(--ink);font-weight:500}
+.irow .n2{font-size:11.5px;color:var(--ink-3);margin-top:1px}
+.irow .wg{font-size:13.5px;color:var(--ink-2);font-variant-numeric:tabular-nums;white-space:nowrap}
+.irow .sb{
+  padding:5px 12px;border-radius:999px;font-size:12.5px;color:var(--blue);
+  background:#fff;border:1px solid var(--line-2);white-space:nowrap;
+}
+.irow .sb:hover{background:var(--blue);color:#fff;border-color:var(--blue)}
+.irow .sb.gray{color:var(--ink-2)}
+.irow .sb.gray:hover{background:var(--ink-2);color:#fff;border-color:var(--ink-2)}
+.addrow{
+  margin:10px 18px 14px;padding:11px;border-radius:var(--r-sm);text-align:center;
+  border:1.5px dashed var(--line-2);font-size:13.5px;color:var(--blue);cursor:pointer;
+}
+.addrow:hover{background:#F5FAFE;border-color:var(--blue-l)}
+
+.steps{padding:18px}
+.stepnote{
+  padding:12px 14px;border-radius:var(--r-sm);background:#F4FAF7;color:var(--green-d);
+  font-size:13px;line-height:1.6;margin-bottom:16px;
+}
+.step{display:flex;gap:14px;padding:13px 0;border-bottom:1px dashed var(--line)}
+.step:last-child{border-bottom:none;padding-bottom:0}
+.step .sn{
+  width:28px;height:28px;flex:none;border-radius:50%;display:grid;place-items:center;
+  background:var(--navy);color:#fff;font-size:13px;font-weight:600;
+}
+.step .st{font-size:14.5px;font-weight:600;color:var(--navy);margin-bottom:3px}
+.step .sd{font-size:13.5px;color:var(--ink-2);line-height:1.7}
+.refnote{display:flex;gap:9px;margin-top:14px;font-size:12.5px;color:var(--ink-3);line-height:1.65}
+
+.srcs{padding:16px 18px;display:flex;flex-wrap:wrap;gap:9px}
+.src{display:inline-flex;align-items:center;gap:6px;max-width:100%;padding:7px 13px;border-radius:999px;
+  background:var(--bg);font-size:12.5px;color:var(--ink-2);border:1px solid var(--line)}
+.src:hover{background:#fff;border-color:var(--line-2);text-decoration:none}
+.src span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px}
+.srctip{width:100%;font-size:12px;color:var(--ink-3);margin-top:4px;line-height:1.6}
+
+.hls{padding:8px 18px}
+.hl{display:flex;gap:13px;padding:13px 0;border-bottom:1px dashed var(--line)}
+.hl:last-child{border-bottom:none}
+.hl .hi{width:34px;height:34px;flex:none;border-radius:10px;display:grid;place-items:center;background:#EAF6EF;color:var(--green-d)}
+.hl .ht{font-size:14px;font-weight:600;color:var(--ink)}
+.hl .hd{font-size:13px;color:var(--ink-2);line-height:1.6;margin-top:2px}
+
+.acts{display:flex;flex-wrap:wrap;gap:11px;margin-top:26px}
+
+/* ---------- 采购清单 ---------- */
+.shopnote{padding:15px 18px;font-size:13px;color:var(--ink-2);background:#fff;border-radius:var(--r);
+  border:1px solid var(--line);margin-bottom:16px;line-height:1.7}
+.shopgrp{margin-bottom:16px;overflow:hidden}
+.shopgrp .gt{display:flex;align-items:center;gap:9px;padding:14px 18px;background:#FAFCFE;border-bottom:1px solid var(--line)}
+.shopgrp .gt .cn{font-size:14px;font-weight:600;color:var(--navy)}
+.shopgrp .gt .cs{margin-left:auto;font-size:12.5px;color:var(--ink-3)}
+.shoprow{display:flex;align-items:center;gap:12px;padding:10px 18px;border-bottom:1px solid var(--line)}
+.shoprow:last-child{border-bottom:none}
+.shoprow .nm{flex:1;font-size:14px;color:var(--ink)}
+.shoprow .per{font-size:12px;color:var(--ink-3);white-space:nowrap}
+.shoprow .g{font-size:14px;font-weight:600;color:var(--navy);font-variant-numeric:tabular-nums;
+  min-width:82px;text-align:right;white-space:nowrap}
+
+/* ---------- 关于 ---------- */
+.aboutgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.ab{padding:20px 22px}
+.ab h4{font-size:15.5px;font-weight:600;color:var(--navy);margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.ab ul{list-style:none;display:flex;flex-direction:column;gap:9px}
+.ab li{font-size:13.5px;color:var(--ink-2);line-height:1.65;padding-left:20px;position:relative}
+.ab li::before{content:"";position:absolute;left:4px;top:9px;width:6px;height:6px;border-radius:50%;background:var(--green-l)}
+.ab li b{color:var(--ink);font-weight:500}
+.ab .bad{color:var(--err)}
+.setrow{display:flex;flex-direction:column;gap:7px;margin-bottom:14px}
+.setrow label{font-size:13px;color:var(--ink-2);font-weight:500}
+.setrow .hint{font-size:12px;color:var(--ink-3);line-height:1.6}
+.setrow input,.setrow select{
+  padding:11px 14px;border-radius:var(--r-sm);border:1px solid var(--line-2);background:#fff;
+  font-size:13.5px;font-family:var(--sans);outline:none;transition:border-color .15s,box-shadow .15s;
+}
+.setrow input:focus,.setrow select:focus{border-color:var(--blue-l);box-shadow:0 0 0 3px rgba(60,147,192,.14)}
+.warnbox{
+  padding:13px 15px;border-radius:var(--r-sm);background:var(--warn-bg);color:var(--warn);
+  font-size:12.5px;line-height:1.7;margin-bottom:16px;
+}
+.warnbox b{font-weight:600}
+.okbox{
+  padding:13px 15px;border-radius:var(--r-sm);background:#EAF6EF;color:var(--green-d);
+  font-size:12.5px;line-height:1.7;margin-bottom:16px;
+}
+.okbox b{font-weight:600}
+code.mono{
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11.5px;
+  background:rgba(15,46,66,.06);padding:1px 5px;border-radius:5px;color:var(--ink-2);
+}
+.modepill{
+  display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:999px;
+  font-size:11.5px;font-weight:600;letter-spacing:.2px;
+}
+.modepill.direct{background:#EEF3FB;color:#3A6EA5}
+.modepill.backend{background:#EAF6EF;color:var(--green-d)}
+.modepill i{width:6px;height:6px;border-radius:50%;background:currentColor;display:block}
+
+/* 只读版：把所有会调 AI 的入口藏掉。
+   用 CSS 而不是遍历 DOM，是因为这些按钮是每次 render() 重新生成的 ——
+   一次性 remove 会在下一次渲染时又冒出来。 */
+body.readonly [data-act="genweek"],
+body.readonly [data-act="regen"],
+body.readonly [data-act="image"],
+body.readonly [data-act="swap"],
+body.readonly [data-act="add"]{display:none !important}
+.robar{
+  display:flex;align-items:center;gap:8px;margin:0 0 14px;padding:10px 14px;
+  background:#F3F7FB;border:1px solid #DCE7F2;border-radius:12px;
+  font-size:12px;color:#41607F;line-height:1.6
+}
+.robar b{color:#28486A}
+
+/* 采购范围选择器 */
+.shoppick{
+  display:flex;align-items:center;flex-wrap:wrap;gap:8px;
+  margin:0 0 16px;padding:12px 14px;background:#F7FAFB;border-radius:14px
+}
+.sp-l{font-size:12.5px;color:var(--ink-3);margin-right:2px}
+.sp-c{
+  font-size:12.5px;padding:6px 12px;border-radius:999px;cursor:pointer;
+  background:#fff;border:1px solid #DCE7F2;color:var(--ink-2);user-select:none
+}
+/* 注意：本文件的 CSS 变量里没有 --blue-d，深色是 --navy / --blue */
+.sp-c:hover{border-color:var(--blue-l);color:var(--navy)}
+.sp-c.on{background:var(--navy);border-color:var(--navy);color:#fff}
+.sp-t{margin-left:auto;font-size:12px;color:var(--ink-3)}
+
+/* ---------- 底部标签栏（移动端） ---------- */
+.tabbar{
+  position:fixed;left:0;right:0;bottom:0;z-index:45;display:none;
+  background:rgba(255,255,255,.94);backdrop-filter:blur(14px);border-top:1px solid var(--line);
+  padding-bottom:env(safe-area-inset-bottom);
+}
+.tabbar .in{display:grid;grid-template-columns:repeat(4,1fr)}
+.tabbar button{padding:9px 4px 10px;display:flex;flex-direction:column;align-items:center;gap:3px;
+  font-size:11px;color:var(--ink-3)}
+.tabbar button.on{color:var(--navy);font-weight:500}
+.tabbar svg{opacity:.85}
+
+/* ---------- 弹层 ---------- */
+.mask{position:fixed;inset:0;z-index:60;background:rgba(9,29,42,.5);backdrop-filter:blur(2px);
+  opacity:0;animation:fade .2s forwards}
+@keyframes fade{to{opacity:1}}
+@keyframes rise{from{transform:translateY(24px);opacity:.6}to{transform:translateY(0);opacity:1}}
+.sheet{
+  position:fixed;z-index:61;left:50%;bottom:0;transform:translateX(-50%);
+  width:min(680px,100%);max-height:88vh;display:flex;flex-direction:column;
+  background:#fff;border-radius:22px 22px 0 0;animation:rise .24s ease-out;
+}
+.sheet .sh{padding:20px 22px 14px;border-bottom:1px solid var(--line)}
+.sheet .sh h4{font-size:16.5px;font-weight:600;color:var(--navy)}
+.sheet .sh p{font-size:12.5px;color:var(--ink-3);margin-top:4px;line-height:1.6}
+.filters{display:flex;gap:7px;padding:13px 22px 0;flex-wrap:wrap}
+.filters button{padding:6px 14px;border-radius:999px;font-size:12.5px;background:var(--bg);color:var(--ink-2)}
+.filters button.on{background:var(--navy);color:#fff}
+.searchbox{padding:12px 22px 0}
+.searchbox input{width:100%;padding:11px 15px;border-radius:999px;border:1px solid var(--line-2);
+  background:var(--bg);font-size:13.5px;font-family:var(--sans);outline:none}
+.searchbox input:focus{background:#fff;border-color:var(--blue-l)}
+.slist{overflow-y:auto;flex:1;padding:12px 22px;min-height:120px}
+.srow{display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:var(--r-sm);cursor:pointer}
+.srow:hover{background:var(--bg)}
+.srow .an{flex:1;min-width:0}
+.srow .a1{font-size:14px;font-weight:500;color:var(--ink)}
+.srow .a1 .rec{font-size:11px;color:var(--green-d);background:#EAF6EF;padding:1px 7px;border-radius:999px;margin-left:7px}
+.srow .a2{font-size:11.5px;color:var(--ink-3);margin-top:2px}
+.srow .ag{font-size:13px;color:var(--ink-2);white-space:nowrap}
+.srow .pk{padding:6px 15px;border-radius:999px;font-size:12.5px;background:var(--navy);color:#fff}
+.sheet .custom{padding:14px 22px 8px;border-top:1px solid var(--line);background:#FAFCFE}
+.sheet .custom .t{font-size:12.5px;color:var(--ink-2);font-weight:500;margin-bottom:9px}
+.sheet .custom .f{display:flex;gap:8px;flex-wrap:wrap}
+.sheet .custom input{flex:1;min-width:110px;padding:10px 13px;border-radius:var(--r-sm);
+  border:1px solid var(--line-2);background:#fff;font-size:13px;font-family:var(--sans);outline:none}
+.sheet .custom select{padding:10px 13px;border-radius:var(--r-sm);border:1px solid var(--line-2);
+  background:#fff;font-size:13px;font-family:var(--sans)}
+.sheet .sclose{padding:12px;text-align:center;font-size:14px;color:var(--ink-2);cursor:pointer;
+  border-top:1px solid var(--line)}
+.sheet .sclose:hover{background:var(--bg)}
+
+/* ---------- 生成进度 ---------- */
+.genmask{position:fixed;inset:0;z-index:70;background:rgba(9,29,42,.56);backdrop-filter:blur(3px);
+  display:grid;place-items:center;padding:20px}
+.genbox{width:min(420px,100%);background:#fff;border-radius:20px;padding:26px 26px 22px;
+  box-shadow:0 30px 70px -20px rgba(0,0,0,.5);animation:rise .22s ease-out}
+.genbox h4{font-size:17px;font-weight:600;color:var(--navy);margin-bottom:7px}
+.genbox .msg{font-size:13.5px;color:var(--ink-2);line-height:1.6;min-height:44px}
+.genbox .bar{height:7px;border-radius:999px;background:var(--bg);overflow:hidden;margin:16px 0 12px}
+.genbox .bar i{display:block;height:100%;border-radius:999px;
+  background:linear-gradient(90deg,var(--green),var(--blue-l));transition:width .35s ease}
+.genbox .note{font-size:12px;color:var(--ink-3);line-height:1.65}
+.genbox .err{margin-top:13px;padding:11px 13px;border-radius:var(--r-sm);background:var(--err-bg);
+  color:var(--err);font-size:12.5px;line-height:1.65;word-break:break-word}
+.genbox .close{margin-top:15px;text-align:center;font-size:14px;color:var(--ink-2);cursor:pointer;
+  padding:10px;border-radius:var(--r-sm)}
+.genbox .close:hover{background:var(--bg)}
+.spin{width:15px;height:15px;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;
+  border-radius:50%;animation:sp .7s linear infinite;display:inline-block}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* ---------- toast ---------- */
+.toast{
+  position:fixed;left:50%;bottom:96px;transform:translateX(-50%);z-index:90;
+  padding:11px 20px;border-radius:999px;background:rgba(14,61,92,.94);color:#fff;
+  font-size:13.5px;box-shadow:0 12px 30px -8px rgba(0,0,0,.4);animation:rise .2s ease-out;
+  max-width:88vw;text-align:center;
+}
+
+/* ---------- 响应式 ---------- */
+@media(max-width:1000px){
+  .hero .wrap{grid-template-columns:1fr;gap:34px;padding-top:40px}
+  .heroart{max-width:460px;margin:0 auto;width:100%}
+  .days{grid-template-columns:repeat(2,1fr)}
+  .dgrid{grid-template-columns:1fr}
+  .benefits{grid-template-columns:repeat(3,1fr)}
+  .aboutgrid{grid-template-columns:1fr}
+}
+@media(max-width:640px){
+  .wrap{padding:0 15px}
+  .nav{display:none}
+  .topbar .wrap{height:56px}
+  .tabbar{display:block}
+  main{padding-bottom:150px}
+  .benefits{grid-template-columns:repeat(2,1fr)}
+  .days{grid-template-columns:1fr}
+  .heroart .metrics{position:static;margin-top:14px;width:100%;justify-content:space-between}
+  .heroart .metrics .m{flex:1;padding:10px 6px}
+  .heroart .bubble{right:8px;top:8px;max-width:150px;padding:9px 13px;font-size:13px}
+  .nutri{grid-template-columns:repeat(3,1fr)}
+  .serve .totals{margin-left:0;width:100%;justify-content:space-between}
+  .dhead h1{font-size:22px}
+  .irow{flex-wrap:wrap}
+  .sheet{border-radius:20px 20px 0 0}
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <div class="brand">
+      <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true">
+        <circle cx="16" cy="16" r="16" fill="#0E3D5C"/>
+        <path d="M9 23C9 14 14 9 23 9c0 9-5 14-14 14z" fill="#4CB37C"/>
+        <path d="M11 21C14.5 17.5 18 14 21 11.5" stroke="#fff" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+      </svg>
+      <span>健康午餐</span>
+    </div>
+    <nav class="nav" id="topnav"></nav>
+    <div class="act">
+      <button class="btn ghost sm" id="btnTopGen" data-act="genweek">生成本周菜单</button>
+    </div>
+  </div>
+</header>
+
+<main id="app"></main>
+
+<nav class="tabbar"><div class="in" id="tabbar"></div></nav>
+<div id="layers"></div>
+<div id="toasts"></div>
+
+<script src="data.js"></script>
+<script>
+"use strict";
+(function () {
+
+/* =========================================================================
+   0. 离线数据（由 后端/tools/export_web_data.py 生成）
+   ========================================================================= */
+const W = window.WEB_DATA || {};
+const FALLBACK   = W.fallback   || {};
+const LIB        = W.lib        || {};
+const CATS       = W.cats       || {protein:'优质蛋白',carb:'全谷杂豆主食',veg:'蔬菜',fat:'健康脂肪',season:'调味'};
+const CAT_ORDER  = W.catOrder   || ['protein','carb','veg','fat','season'];
+const GRAM_RANGE = W.gramRange  || {protein:[80,200],carb:[30,160],veg:[20,220],fat:[5,60],season:[0.5,60]};
+const TOTAL_RANGE= W.totalRange || [550,1000];
+const VALID_HL   = new Set(W.validHlIcons || []);
+const CAT_ALIAS  = W.catAlias   || {};
+const DAY_PLAN   = W.dayPlan    || [];
+const PLANS      = W.plans      || {};
+const PROMPTS    = W.prompts    || {};
+const MODELS     = W.models     || {};
+const COMPANY    = W.companySize || 16;
+const THUMBS     = W.thumbs     || {};
+
+/* 内置 Key：为了让「任何人打开即可使用」成立。
+   注意它会出现在网页源码里 —— 详见「营养理念 · 设置」里的说明。 */
+const DEFAULT_KEY = "";
+const ZHIPU_BASE  = "https://open.bigmodel.cn/api/paas/v4";
+
+/* =========================================================================
+   部署配置 —— 只有这一段需要改。
+
+   MODE = 'direct'（默认）
+     浏览器直接调智谱开放平台。零部署、零成本，但 Key 写在页面里（等于公开）。
+
+   MODE = 'backend'
+     浏览器调你自己的后端（微信云托管 / 任何跑着 后端/ 的服务器）。
+     Key 只存在于服务端，页面里没有 —— 公开分享时用这个。
+     先把 后端/ 按《部署到微信云托管.md》部署好，再把公网域名填到 BACKEND_BASE。
+
+   两种模式功能完全一致：生成菜单、换食材、整日重做、AI 配图、采购清单。
+   ========================================================================= */
+const CONF = {
+  MODE: 'direct',        // 'direct' | 'backend'
+  BACKEND_BASE: '',      // MODE='backend' 时必填，如 https://xxxx.ap-shanghai.run.tcloudbase.com
+  /* 只读版：彻底去掉所有会调 AI 的入口（生成/换食材/换一道/配图/加食材）。
+     适合「生成一次、发给大家看」的场景 —— 页面里既没有 Key 也连不上后端，
+     但内置的预生成菜单照常能看，永久免费、可随便分发。 */
+  READONLY: false
+};
+
+/* 不改源码也能临时切换模式（优先级从低到高）：
+     1) 在 index.html 之前引一个 config.js，写 window.HL_CONF = { MODE:'backend', BACKEND_BASE:'https://…' }
+     2) 地址栏参数：index.html?mode=backend&backend=https://…
+   用途：把网页版部署成静态站点后，同一个文件既能直连、也能指向你的云托管后端。 */
+(function applyConfOverride() {
+  const o = (typeof window !== 'undefined' && window.HL_CONF) || null;
+  if (o && typeof o === 'object') {
+    /* 整体合并，而不是只挑 MODE / BACKEND_BASE —— 否则像 POLL_MS、JOB_TIMEOUT_MS
+       这类调优项会被悄悄丢掉，排查起来很费时间。 */
+    for (const k of Object.keys(o)) {
+      if (o[k] == null) continue;
+      CONF[k] = (k === 'BACKEND_BASE') ? String(o[k]) : o[k];
+    }
+  }
+  try {
+    const q = new URLSearchParams(window.location.search || '');
+    if (q.get('mode')) CONF.MODE = q.get('mode');
+    if (q.get('backend')) CONF.BACKEND_BASE = q.get('backend');
+  } catch (e) { /* 老浏览器拿不到 search 就忽略 */ }
+})();
+
+const USE_BACKEND = CONF.MODE === 'backend' && !!CONF.BACKEND_BASE;
+const API_BASE = USE_BACKEND ? String(CONF.BACKEND_BASE).replace(/\/+$/, '') : ZHIPU_BASE;
+
+/* 只读开关同样支持地址栏覆盖（?readonly=1），方便不重新打包就先试效果。 */
+const READONLY = (function () {
+  try {
+    const q = new URLSearchParams(window.location.search || '');
+    if (q.get('readonly') === '1') return true;
+  } catch (e) { /* 老浏览器拿不到 search 就只看配置 */ }
+  return CONF.READONLY === true;
+})();
+
+/* =========================================================================
+   1. 常量与工具
+   ========================================================================= */
+const LS = { plan:'hl_plan', menus:'hl_menus', imgs:'hl_imgs', key:'hl_key', model:'hl_model' };
+const IMG_TTL = 6.5 * 864e5;      // 智谱 CDN 签名有效期 7 天，留半天余量
+
+const CAT_STYLE = {
+  protein:{bg:'#FDECE7',fg:'#C4553A',label:'优质蛋白'},
+  carb:   {bg:'#FBF3E3',fg:'#A87B22',label:'全谷杂豆主食'},
+  veg:    {bg:'#EAF6EF',fg:'#2C7A50',label:'蔬菜'},
+  fat:    {bg:'#EEF3FB',fg:'#3A6EA5',label:'健康脂肪'},
+  season: {bg:'#F1F0F7',fg:'#5F5A87',label:'调味'}
+};
+const HL_STYLE = {fish:['#E8F2F9','#1E6E9E'],shrimp:['#FDECE7','#C4553A'],chicken:['#FBF3E3','#A87B22'],
+  beef:['#F8EAEC','#A63B4E'],pork:['#F4EDF8','#6B4A8A'],protein:['#EAF6EF','#2C7A50'],
+  carb:['#FBF3E3','#A87B22'],veg:['#EAF6EF','#2C7A50'],fat:['#EEF3FB','#3A6EA5'],season:['#F1F0F7','#5F5A87']};
+
+const TYPE_LABEL = {fish:'鱼',shrimp:'虾',chicken:'鸡肉',beef:'牛肉',pork:'猪肉'};
+
+const ICONS = {
+  protein:'M3 12c4.4-5.2 13-5.2 17.4 0-4.4 5.2-13 5.2-17.4 0zM20.4 12l3.6-3v6z',
+  carb:   'M3.5 11h17a8.5 8.5 0 0 1-17 0zM6 19.5h12',
+  veg:    'M5 20C5 11 11 5 20 5c0 9-6 15-15 15zM7 18c3-3 6-6 9-8.5',
+  fat:    'M12 3s6.5 7 6.5 11.5a6.5 6.5 0 0 1-13 0C5.5 10 12 3 12 3z',
+  season: 'M10 3h4v2.6l2 3.2V20a1.6 1.6 0 0 1-1.6 1.6h-4.8A1.6 1.6 0 0 1 8 20V8.8l2-3.2z'
+};
+const NAV = [
+  {k:'home',  t:'本周菜单', d:'M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z'},
+  {k:'shop',  t:'采购清单', d:'M3 4h2l2.4 11h11L21 7H6M9 20a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm8 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2z'},
+  {k:'about', t:'营养理念', d:'M12 21s-7.5-4.7-7.5-10A4.5 4.5 0 0 1 12 8.2 4.5 4.5 0 0 1 19.5 11c0 5.3-7.5 10-7.5 10z'},
+  {k:'setup', t:'设置',     d:'M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zm8.4-2.6l1.9 1.4-1.9 3.3-2.2-.9a7.4 7.4 0 0 1-1.9 1.1l-.3 2.4h-3.8l-.3-2.4a7.4 7.4 0 0 1-1.9-1.1l-2.2.9-1.9-3.3 1.9-1.4a7.5 7.5 0 0 1 0-2.2L4.5 9.3l1.9-3.3 2.2.9a7.4 7.4 0 0 1 1.9-1.1l.3-2.4h3.8l.3 2.4a7.4 7.4 0 0 1 1.9 1.1l2.2-.9 1.9 3.3-1.9 1.4a7.5 7.5 0 0 1 0 2.2z'}
+];
+
+const $  = (s, r) => (r || document).querySelector(s);
+const $$ = (s, r) => Array.prototype.slice.call((r || document).querySelectorAll(s));
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g,
+  (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const num = (v) => { const f = parseFloat(v); return isFinite(f) ? f : 0; };
+const r1  = (v) => Math.round(v * 10) / 10;
+const gfmt = (v) => (v >= 100 ? Math.round(v) : r1(v)) + ' g';
+
+function normCat(raw) {
+  if (typeof raw !== 'string') return 'veg';
+  const k = raw.trim().toLowerCase().replace(/\s+/g, '_');
+  if (CATS[k]) return k;
+  if (CAT_ALIAS[k]) return CAT_ALIAS[k];
+  const toks = [['protein','protein'],['meat','protein'],['fish','protein'],['shrimp','protein'],
+    ['chicken','protein'],['beef','protein'],['pork','protein'],['carb','carb'],['grain','carb'],
+    ['veg','veg'],['fruit','veg'],['fat','fat'],['oil','fat'],['season','season'],
+    ['spice','season'],['salt','season']];
+  for (const [t, c] of toks) if (k.indexOf(t) >= 0) return c;
+  return 'veg';
+}
+
+function cleanAlt(raw, cat) {
+  const out = [];
+  if (!Array.isArray(raw)) return out;
+  for (const it of raw) {
+    let n = '', g = 0, note = '';
+    if (Array.isArray(it)) { n = String(it[0] || '').trim(); g = num(it[1]); note = String(it[2] || '').trim(); }
+    else if (it && typeof it === 'object') {
+      n = String(it.n || it.name || '').trim();
+      g = num(it.g || it.gram);
+      note = String(it.note || it.reason || '').trim();
+    }
+    if (!n) continue;
+    const rg = GRAM_RANGE[cat] || [1, 300];
+    if (g <= 0) g = rg[0];
+    g = Math.max(rg[0], Math.min(rg[1], g));
+    out.push([n, r1(g), note]);
+    if (out.length >= 3) break;
+  }
+  return out;
+}
+
+/* 把模型输出收敛成可渲染的合法结构 —— 与 后端/app/chef.py 的 normalize_day 一一对应 */
+/* 调整总重时的类别优先顺序：先动蔬菜（多吃菜符合地中海原则），再主食、蛋白、脂肪。
+   调味料不在其中 —— 盐、油、酸的比例不能跟着总重等比放大或缩小。 */
+const FIT_ORDER = ['veg', 'carb', 'protein', 'fat'];
+
+/* 把一人份总重拉回 TOTAL_RANGE 区间内（就地改克重）。
+   与 后端/app/chef.py 的 _fit_total 保持一致；调整始终在 GRAM_RANGE 允许的
+   范围内进行，所以不会把某样食材推到离谱的克重。 */
+function fitTotal(ing) {
+  const lo = TOTAL_RANGE[0], hi = TOTAL_RANGE[1];
+  /* 用四舍五入后的总重判断，避免浮点累加出 1000.0000000001 这种假越界 */
+  let total = r1(ing.reduce((s, i) => s + i.g, 0));
+  if (total >= lo && total <= hi) return;
+
+  const target = total < lo ? lo : hi;
+  let sign = target > total ? 1 : -1;
+  let need = Math.abs(target - total);
+
+  /* 第一轮：按优先级整类地挪，把缺口摊到多道食材上（比只动一样更自然） */
+  for (const cat of FIT_ORDER) {
+    if (need < 0.5) break;
+    const group = ing.filter((i) => i.c === cat);
+    if (!group.length) continue;
+    const rg = GRAM_RANGE[cat] || [1, 300];
+    const caps = group.map((i) => Math.max(0, sign > 0 ? rg[1] - i.g : i.g - rg[0]));
+    const room = caps.reduce((s, c) => s + c, 0);
+    if (room <= 0) continue;
+    const move = Math.min(need, room);
+    group.forEach((it, k) => { it.g = r1(it.g + sign * move * (caps[k] / room)); });
+    need -= move;
+  }
+
+  /* 第二轮：逐项四舍五入会留下零点几克的残差。实测出现过「1082g → 1000.1g」
+     这种刚好越界的尴尬结果 —— 所以这里必须补到精确落点，不能有容差。
+     仍然从蔬菜开始找（不能因为残差就跳去动蛋白或脂肪），找到第一个还有空间的
+     食材就把差额一次性补平。 */
+  for (let k = 0; k < 8; k++) {
+    const diff = r1(target - ing.reduce((s, i) => s + i.g, 0));
+    if (diff === 0) break;
+    sign = diff > 0 ? 1 : -1;
+    let done = false;
+    for (const cat of FIT_ORDER) {
+      const rg = GRAM_RANGE[cat] || [1, 300];
+      const pick = ing.find((i) => i.c === cat &&
+        (sign > 0 ? i.g < rg[1] : i.g > rg[0]));
+      if (!pick) continue;
+      const g = Math.max(rg[0], Math.min(rg[1], r1(pick.g + diff)));
+      if (g !== pick.g) { pick.g = g; done = true; break; }
+    }
+    if (!done) break;                        // 所有类别都到边界了，认了
+  }
+}
+
+function normalizeDay(raw, meta, plan, sources) {
+  const ing = [];
+  for (const it of (raw && raw.ing) || []) {
+    if (!it || typeof it !== 'object') continue;
+    const n = String(it.n || it.name || '').trim();
+    if (!n) continue;
+    const c = normCat(it.c);
+    const rg = GRAM_RANGE[c] || [1, 300];
+    let g = num(it.g || it.gram || it.weight);
+    if (g <= 0) g = rg[0];
+    g = Math.max(rg[0], Math.min(rg[1], g));
+    ing.push({ c, n, g: r1(g), note: String(it.note || '').trim(), alt: cleanAlt(it.alt, c) });
+  }
+  if (!ing.some((i) => i.c === 'carb'))
+    ing.push({ c:'carb', n:'糙米（生）', g:50, note:'全谷 · B族与膳食纤维', alt:[] });
+  if (!ing.some((i) => i.c === 'veg'))
+    ing.push({ c:'veg', n:'西兰花', g:120, note:'萝卜硫素 · 抗氧化', alt:[] });
+
+  /* 总重护栏：模型经常给出略低于下限的结果（实测约每 3 天 1 天），
+     之前只是记一条告警，但没有任何界面会显示它 —— 用户拿到的就是一份
+     克重不达标的菜谱。这里直接兜住，和 后端/app/chef.py 的 _fit_total 一致。 */
+  fitTotal(ing);
+
+  ing.sort((a, b) => CAT_ORDER.indexOf(a.c) - CAT_ORDER.indexOf(b.c));
+
+  const steps = [];
+  for (const s of (raw && raw.steps) || []) {
+    let t = '', d = '';
+    if (s && typeof s === 'object' && !Array.isArray(s)) { t = String(s.t || '').trim(); d = String(s.d || '').trim(); }
+    else if (Array.isArray(s) && s.length >= 2) { t = String(s[0] || '').trim(); d = String(s[1] || '').trim(); }
+    else continue;
+    if (d) steps.push({ t: t || ('步骤' + (steps.length + 1)), d });
+  }
+
+  const hl = [];
+  for (const h of (raw && raw.hl) || []) {
+    if (!h || typeof h !== 'object') continue;
+    const n = String(h.n || '').trim(), d = String(h.d || '').trim();
+    if (!n || !d) continue;
+    let i = String(h.i || 'veg').trim().toLowerCase();
+    if (!VALID_HL.has(i)) i = meta.type === 'fish' ? 'fish' : 'veg';
+    hl.push({ i, n, d });
+    if (hl.length >= 4) break;
+  }
+  if (!hl.length) hl.push({ i: meta.type, n: meta.tn,
+    d: '优质蛋白来源，少油烟烹饪更好保留营养。' });
+
+  const chef = (raw && typeof raw.chef === 'object' && raw.chef) || {};
+  const total = r1(ing.reduce((s, i) => s + i.g, 0));
+
+  return {
+    id: meta.id, wk: meta.wk, en: meta.en, type: meta.type, tn: meta.tn,
+    title: String((raw && raw.title) || (meta.wk + '地中海午餐')).trim(),
+    sub: String((raw && raw.sub) || '').trim(),
+    method: String((raw && raw.method) || '烤 · 煮').trim(),
+    tags: (((raw && raw.tags) || []).map((t) => String(t).trim()).filter(Boolean)).slice(0, 4),
+    kcal: Math.round(num(raw && raw.kcal)),
+    p: r1(num(raw && raw.p)), c: r1(num(raw && raw.c)),
+    f: r1(num(raw && raw.f)), fb: r1(num(raw && raw.fb)),
+    img: meta.type,
+    ing, steps, hl, total_g: total,
+    chef: { say: String(chef.say || '').trim(), ref: String(chef.ref || '').trim() },
+    sources: collectSources(raw, sources),
+    plan: plan, servings: COMPANY
+  };
+}
+
+function collectSources(raw, sources) {
+  const seen = new Set(), out = [];
+  for (const s of sources || []) {
+    const link = String(s.link || '').trim();
+    if (!link || seen.has(link)) continue;
+    seen.add(link);
+    out.push({ title: String(s.title || '').trim().slice(0, 80), link, media: String(s.media || '').trim() });
+    if (out.length >= 6) break;
+  }
+  for (const s of ((raw && raw.sources) || [])) {
+    const link = String(s).trim();
+    if (link.indexOf('http') !== 0 || seen.has(link)) continue;
+    seen.add(link);
+    out.push({ title:'', link, media:'' });
+    if (out.length >= 8) break;
+  }
+  return out;
+}
+
+/* =========================================================================
+   2. 提示词（镜像 后端/app/prompts.py，常量从 data.js 取，避免漂移）
+   ========================================================================= */
+const MEAT_HINT = {
+  fish:'优先青花鱼（鲭鱼）、沙丁鱼、秋刀鱼、龙利鱼柳等性价比高的海鱼，不要用三文鱼、鳕鱼等高价鱼。',
+  shrimp:'优先冷冻南美白虾仁、北极甜虾等性价比高的海虾，不要用高价虾类。',
+  chicken:'用去皮鸡腿肉或去皮鸡胸肉。',
+  beef:'用瘦牛里脊（牛霖）或牛腱等最瘦部位。',
+  pork:'用最瘦的猪里脊。'
+};
+
+function buildDayPrompt(day, planStyle, avoidTitles, servings, extra) {
+  const avoid = (avoidTitles && avoidTitles.length) ? avoidTitles.join('、') : '（无）';
+  return '请为「' + day.wk + '」设计一份地中海风格的少油烟健康午餐。\n\n' +
+    '【本周方案】' + planStyle + '\n\n' +
+    '【本日荤菜】必须是「' + day.tn + '」，' + (MEAT_HINT[day.type] || '') + '\n' +
+    '【用餐规模】公司 ' + servings + ' 人，一人一份；下面的克重全部按**一人份**给。\n' +
+    '【本周已排菜名，必须避开重复】' + avoid + '\n' + (extra || '') + '\n\n' +
+    '请先联网检索「' + day.tn + '」在地中海菜系里少油烟的真实做法（烤箱/蒸/白灼/炖煮），\n' +
+    '核对温度与时间，再据此完成菜谱。\n\n' +
+    '严格按以下 JSON 结构输出（只输出 JSON，不要 markdown 代码块，不要任何解释）：\n' +
+    PROMPTS.daySchema;
+}
+
+function buildSwapPrompt(day, ing, want) {
+  const wantLine = want ? ('用户希望换成：' + want) : '用户没有指定具体食材，请你推荐最合适的一种。';
+  const oldMacros = { kcal: day.kcal, p: day.p, c: day.c, f: day.f, fb: day.fb };
+  return '这道菜是「' + day.title + '」（' + day.sub + '），做法：' + day.method + '。\n\n' +
+    '需要更换的食材：\n' +
+    '- 名称：' + ing.n + '\n- 类别：' + ing.c + '\n' +
+    '- 一人份克重：' + ing.g + ' g\n- 说明：' + (ing.note || '') + '\n\n' +
+    wantLine + '\n\n' +
+    '【更换前整道菜的一人份营养】' + JSON.stringify(oldMacros) + '\n' +
+    '（你返回的 macros 必须是整道菜更换后的合计值，量级应与上面接近，不要只算某一样食材。）\n\n' +
+    '当前完整食材表（供你判断营养结构）：\n' + JSON.stringify(day.ing, null, 1) + '\n\n' +
+    '请联网检索后给出替换方案，严格按此 JSON 输出（只输出 JSON）：\n' + PROMPTS.swapSchema;
+}
+
+function buildRegenPrompt(day, oldTitle, feedback, planStyle, avoidTitles, servings) {
+  const fb = feedback ? ('\n【用户反馈】' + feedback) : '';
+  const avoid = (avoidTitles && avoidTitles.length) ? avoidTitles.join('、') : '（无）';
+  return '用户对原来这道「' + oldTitle + '」不满意，请换一道**完全不同**的菜，但荤菜类别仍然是「' + day.tn + '」。\n\n' +
+    '【本周方案】' + planStyle + '\n' +
+    '【用餐规模】公司 ' + servings + ' 人，一人一份，克重按一人份给。\n' +
+    '【必须避开的菜名】' + avoid + fb + '\n\n' +
+    '请先联网检索真实做法，再输出。严格按以下 JSON 结构输出（只输出 JSON，不要 markdown 代码块）：\n' +
+    PROMPTS.daySchema;
+}
+
+/* =========================================================================
+   3. 智谱 API —— 浏览器直连，无需后端
+   ========================================================================= */
+class ApiError extends Error {
+  constructor(msg, code) { super(msg); this.name = 'ApiError'; this.code = code; }
+}
+
+function apiKey() {
+  try { return localStorage.getItem(LS.key) || DEFAULT_KEY; } catch (e) { return DEFAULT_KEY; }
+}
+function chatModel() {
+  try { return localStorage.getItem(LS.model) || MODELS.chat || 'glm-4.7'; } catch (e) { return 'glm-4.7'; }
+}
+
+function extractJson(text) {
+  if (!text) throw new ApiError('模型返回内容为空');
+  let s = String(text).trim();
+  const fence = s.match(/^```(?:json|JSON)?\s*([\s\S]*?)\s*```$/);
+  if (fence) s = fence[1].trim();
+  try { const o = JSON.parse(s); if (o && typeof o === 'object' && !Array.isArray(o)) return o; } catch (e) {}
+  const a = s.indexOf('{'), b = s.lastIndexOf('}');
+  if (a !== -1 && b > a) {
+    let cand = s.slice(a, b + 1);
+    try { const o = JSON.parse(cand); if (o && !Array.isArray(o)) return o; } catch (e) {}
+    cand = cand.replace(/,\s*([}\]])/g, '$1');
+    try { const o = JSON.parse(cand); if (o && !Array.isArray(o)) return o; } catch (e) {
+      throw new ApiError('模型输出的 JSON 无法解析');
+    }
+  }
+  throw new ApiError('模型输出中未找到 JSON 对象');
+}
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/* 统一传输层，两种模式共用：
+     direct  → 直连智谱，每个请求带 Authorization
+     backend → 调自己的后端，不带 Key（Key 只在服务端） */
+async function request(path, method, body, timeoutMs) {
+  const m = (method || 'POST').toUpperCase();
+  const hasBody = !(m === 'GET' || m === 'HEAD' || body == null);
+  /* 没有 body 就不发 Content-Type —— 否则 GET 也会变成「非简单请求」，
+     凭空多一次 OPTIONS 预检。 */
+  const headers = {};
+  if (hasBody) headers['Content-Type'] = 'application/json';
+  if (!USE_BACKEND) {
+    const key = apiKey();
+    if (!key) throw new ApiError('没有可用的 API Key，请到「设置」里填写。', 'nokey');
+    headers['Authorization'] = 'Bearer ' + key;
+  }
+
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs || 300000);
+  let resp;
+  try {
+    resp = await fetch(API_BASE + path, {
+      method: m,
+      headers,
+      body: hasBody ? JSON.stringify(body) : undefined,
+      signal: ctrl.signal
+    });
+  } catch (e) {
+    clearTimeout(timer);
+    if (e && e.name === 'AbortError') throw new ApiError('请求超时，请稍后重试。', 'timeout');
+    throw new ApiError('网络不可达：' + (e && e.message ? e.message : e) +
+      (USE_BACKEND
+        ? '（请确认后端地址填对了、云托管实例已启动；若刚部署完请等 1–2 分钟）'
+        : '（请检查网络，或浏览器插件是否拦截了跨域请求）'), 'network');
+  }
+  clearTimeout(timer);
+
+  const text = await resp.text();
+  if (resp.status === 200) {
+    try { return JSON.parse(text); } catch (e) { throw new ApiError('上游返回了非 JSON 内容'); }
+  }
+  let detail = text.slice(0, 300);
+  try {
+    const j = JSON.parse(text);
+    detail = (j.error && (j.error.message || j.error.code)) || j.detail || detail;
+  } catch (e) {}
+  if (resp.status === 401) throw new ApiError('API Key 无效或已过期（401）：' + detail, 'auth');
+  if (resp.status === 429) throw new ApiError('触发了并发/频率限制（429），稍后会自动重试', 'rate');
+  if (USE_BACKEND && resp.status === 404) {
+    throw new ApiError('后端没有这个接口（404）：' + detail +
+      '（请确认 BACKEND_BASE 指向的是 后端/ 这个服务，且已重新部署最新代码）', '404');
+  }
+  if (USE_BACKEND && resp.status === 409) {
+    throw new ApiError(detail || '该方案还没有菜单，请先生成本周菜单', '409');
+  }
+  throw new ApiError('HTTP ' + resp.status + '：' + detail, String(resp.status));
+}
+
+function post(path, body, timeoutMs) { return request(path, 'POST', body, timeoutMs); }
+
+/* 后端的慢接口一律是「异步任务」：POST 立刻返回 {id, status}，结果在 job.result。
+   这样做是为了绕开微信云托管 callContainer 的 15 秒硬上限 —— 提交和轮询都是亚秒级。
+   提交时若后端直接给出了 result（命中缓存 / 复用进行中的任务），就不用轮询了。
+   POLL_MS / JOB_TIMEOUT_MS 可在 CONF 或 HL_CONF 里覆盖（测试用）。 */
+const JOB_POLL_MS    = Math.max(0, num(CONF.POLL_MS) || 1200);
+const JOB_TIMEOUT_MS = num(CONF.JOB_TIMEOUT_MS) || 10 * 60 * 1000;
+
+async function runJob(path, data, onProgress) {
+  const job = await request(path, 'POST', data);
+  if (!job || !job.id) return job;
+  if (job.status === 'done') return job.result === undefined ? null : job.result;
+  if (job.status === 'error') throw new ApiError(job.error || job.message || '任务失败');
+
+  const t0 = Date.now();
+  for (;;) {
+    await sleep(JOB_POLL_MS);
+    const j = await request('/api/job/' + encodeURIComponent(job.id), 'GET');
+    if (onProgress) onProgress(j);
+    if (j.status === 'done') return j.result === undefined ? null : j.result;
+    if (j.status === 'error') throw new ApiError(j.error || j.message || '任务失败');
+    if (Date.now() - t0 > JOB_TIMEOUT_MS) {
+      throw new ApiError('任务等待超时。后端可能还在跑，稍后刷新菜单页看看。', 'timeout');
+    }
+  }
+}
+
+/* 后端返回的相对地址（如 /api/image/xxx.png）要补上 BACKEND_BASE */
+function backendUrl(u) {
+  if (!u) return '';
+  const s = String(u);
+  if (/^https?:\/\//i.test(s) || s.indexOf('data:') === 0) return s;
+  return API_BASE + (s.charAt(0) === '/' ? s : '/' + s);
+}
+
+/* 调模型并拿到 JSON。search=true 时挂上联网检索工具。 */
+async function chatJson(system, user, opts) {
+  opts = opts || {};
+  const maxRetry = opts.retry == null ? 3 : opts.retry;
+  const base = {
+    model: opts.model || chatModel(),
+    messages: [{ role:'system', content: system }, { role:'user', content: user }],
+    max_tokens: 8192,
+    temperature: opts.temperature == null ? 0.65 : opts.temperature,
+    stream: false
+  };
+  if (opts.search !== false) {
+    base.tools = [{ type:'web_search', web_search: {
+      enable:true, search_engine:'search_pro', search_result:true,
+      count: W.searchCount || 6, content_size:'high', search_recency_filter:'noLimit'
+    }}];
+  }
+  /* glm-4.7 支持关闭思考；若上游不认这个参数（1210），去掉再试一次 */
+  let withThinking = true;
+
+  let lastErr = null;
+  for (let attempt = 1; attempt <= maxRetry; attempt++) {
+    const body = Object.assign({}, base);
+    if (withThinking) body.thinking = { type:'disabled' };
+    try {
+      const data = await post('/chat/completions', body);
+      const msg = (data.choices && data.choices[0] && data.choices[0].message) || {};
+      const text = msg.content || '';
+      try {
+        return { json: extractJson(text), sources: data.web_search || [], raw: text };
+      } catch (e) {
+        lastErr = e;
+        if (attempt < maxRetry) { await sleep(Math.min(Math.pow(2, attempt) * 1000 + Math.random() * 800, 12000)); continue; }
+        throw e;
+      }
+    } catch (e) {
+      lastErr = e;
+      const m = String(e && e.message || '');
+      if (/1210|thinking/i.test(m)) { withThinking = false; continue; }
+      const retriable = e.code === 'rate' || e.code === 'timeout' || e.code === 'network' ||
+        /^5\d\d$/.test(e.code || '');
+      if (!retriable || attempt >= maxRetry) throw e;
+      await sleep(Math.min(Math.pow(2, attempt) * 1000 + Math.random() * 800, 12000));
+    }
+  }
+  throw lastErr || new ApiError('重试多次后仍然失败');
+}
+
+async function generateDay(meta, plan, avoid, extra) {
+  const style = (PLANS[plan] || {}).style || '';
+  const user = buildDayPrompt(meta, style, avoid, COMPANY, extra);
+  const r = await chatJson(PROMPTS.chefSystem, user, { search:true });
+  let day = normalizeDay(r.json, meta, plan, r.sources);
+  if (!day.sources.length) {
+    // 没检索到来源：强制重试一次，避免幻觉
+    const again = await chatJson(PROMPTS.chefSystem,
+      user + '\n\n注意：上一次你没有真正执行联网搜索。请务必先调用联网搜索工具检索真实菜谱，并在 sources 字段给出真实链接。',
+      { search:true });
+    const d2 = normalizeDay(again.json, meta, plan, again.sources);
+    if (d2.sources.length) return d2;
+  }
+  return day;
+}
+
+/* 图片：返回签名 URL。CDN 不带 CORS 头，所以只能 <img> 显示、不能 fetch 成 blob。
+   好在签名有效期 7 天，缓存 URL 字符串即可复用。 */
+async function generateImage(day) {
+  const prompt = imgPrompt(day);
+  const data = await post('/images/generations', {
+    model: MODELS.image || 'cogview-3-flash',
+    prompt, size: MODELS.imageSize || '1024x1024'
+  }, 180000);
+  const url = data && data.data && data.data[0] && data.data[0].url;
+  if (!url) throw new ApiError('上游没有返回图片地址');
+  return url;
+}
+
+/* 与 后端/app/images.py 的 build_prompt 保持一致 */
+function imgPrompt(day) {
+  const ing = (day.ing || []).filter((i) => i.c !== 'season').slice(0, 7).map((i) => i.n);
+  const lines = [
+    '美食摄影：45 度俯拍，浅色陶瓷盘，木质餐桌，自然侧光，柔和阴影，干净背景，摆盘精致。',
+    '菜品：' + (day.title || '') + (day.sub ? '，' + day.sub : ''),
+    '主要食材：' + ing.join('、'),
+    '烹饪方式：' + (day.method || ''),
+    '地中海健康餐风格，食材新鲜，色彩自然，无多余装饰。',
+    '要求：画面中不要出现任何文字、字母、logo、水印、人物和手。'
+  ];
+  return lines.join('\n');
+}
+
+/* =========================================================================
+   4. 状态
+   ========================================================================= */
+const state = {
+  view: 'home',
+  plan: 'A',
+  dayId: null,
+  menus: {},        // plan -> {plan,name,desc,servings,days:[...]}
+  imgs: {},         // `${plan}:${dayId}` -> {url, ts}
+  sheet: null,      // {mode, dayId, idx, cat, kw, list}
+  busy: null,       // {title, msg, pct, err, note}
+  toast: null,
+  /* 采购清单要汇总哪几天：null / 空数组 = 全部；
+     否则是选中的 dayId 数组。采购常常只买一两天，写死整周并不好用。 */
+  shopDays: null
+};
+let toastTimer = null;
+
+function readLS() {
+  try {
+    const p = localStorage.getItem(LS.plan); if (p && PLANS[p]) state.plan = p;
+    const m = JSON.parse(localStorage.getItem(LS.menus) || '{}'); if (m && typeof m === 'object') state.menus = m;
+    const i = JSON.parse(localStorage.getItem(LS.imgs) || '{}'); if (i && typeof i === 'object') state.imgs = i;
+  } catch (e) { /* 隐私模式下 localStorage 可能不可用，忽略即可 */ }
+}
+function writeMenus() { try { localStorage.setItem(LS.menus, JSON.stringify(state.menus)); } catch (e) {} }
+function writeImgs()  { try { localStorage.setItem(LS.imgs,  JSON.stringify(state.imgs));  } catch (e) {} }
+function writePlan()  { try { localStorage.setItem(LS.plan,  state.plan); } catch (e) {} }
+
+/* 当前方案的数据：优先生成的，没有就用内置离线保底 */
+function menu(plan) {
+  plan = plan || state.plan;
+  return state.menus[plan] || FALLBACK[plan] || null;
+}
+function day(plan, id) {
+  const m = menu(plan);
+  return m ? (m.days || []).find((d) => d.id === id) || null : null;
+}
+function isFallback(plan) { return !state.menus[plan || state.plan] && !!FALLBACK[plan || state.plan]; }
+
+function imgUrl(plan, dayId) {
+  const rec = state.imgs[plan + ':' + dayId];
+  if (rec && rec.url && Date.now() - rec.ts < IMG_TTL) return rec.url;
+  /* 后端模式：菜单里自带 img_key，配图已随镜像烘焙在容器里，
+     直接拼地址即可 —— 不走签名、不会过期、也不花钱。 */
+  if (USE_BACKEND) {
+    const d = day(plan, dayId);
+    if (d && d.img_key) return backendUrl('/api/image/' + d.img_key + '.png');
+  }
+  return '';
+}
+function thumbUrl(dayObj) {
+  return THUMBS[dayObj.type] || '';
+}
+
+/* =========================================================================
+   5. 渲染
+   ========================================================================= */
+function toast(msg) {
+  state.toast = msg;
+  renderLayers();
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { state.toast = null; renderLayers(); }, 2600);
+}
+
+function navHTML() {
+  return NAV.slice(0, 3).map((n) =>
+    '<button data-nav="' + n.k + '" class="' + (state.view === n.k ? 'on' : '') + '">' + n.t + '</button>'
+  ).join('');
+}
+function renderChrome() {
+  $('#topnav').innerHTML = navHTML();
+  $('#tabbar').innerHTML = NAV.map((n) =>
+    '<button data-nav="' + n.k + '" class="' + (state.view === n.k ? 'on' : '') + '">' +
+    '<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" ' +
+    'stroke-linecap="round" stroke-linejoin="round"><path d="' + n.d + '"/></svg><span>' + n.t + '</span></button>'
+  ).join('');
+  const gen = $('#btnTopGen');
+  gen.textContent = state.busy ? '正在生成…' : '生成本周菜单';
+  gen.disabled = !!state.busy;
+}
+
+function phHTML(type, size) {
+  const s = size || 96;
+  return '<div class="ph"><svg width="' + s + '" height="' + s + '" viewBox="0 0 24 24" fill="none" ' +
+    'stroke="rgba(255,255,255,.55)" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">' +
+    '<path d="' + (ICONS[type] || ICONS.veg) + '"/></svg></div>';
+}
+
+function todayIdx() {
+  const d = new Date().getDay();          // 0=周日
+  return d >= 1 && d <= 5 ? d - 1 : 0;
+}
+
+function renderHome() {
+  const m = menu(state.plan);
+  const planKeys = Object.keys(PLANS).length ? Object.keys(PLANS) : Object.keys(FALLBACK);
+  const days = m ? (m.days || []) : [];
+  const hi = days[Math.min(todayIdx(), Math.max(days.length - 1, 0))] || null;
+  const hiImg = hi ? (imgUrl(state.plan, hi.id) || thumbUrl(hi)) : '';
+  const fb = isFallback(state.plan);
+
+  let html = '';
+
+  /* 只读版必须说明「为什么没有生成按钮」—— 否则用户只会觉得页面坏了。 */
+  if (READONLY) {
+    html += '<div class="wrap"><div class="robar">' +
+      '这是 <b>只读版</b>：菜单已由 AI 主厨生成好并打包在这里，打开即可查看，' +
+      '不需要联网、不需要 API Key、也不产生任何费用。' +
+      '这一版没有「生成菜单 / 更换食材」的入口。' +
+      '</div></div>';
+  }
+
+  /* ---- 首屏 ---- */
+  html += '<section class="hero"><div class="wrap">';
+  html += '<div class="heroL">';
+  html += '<span class="eyebrow">' + (hi ? hi.wk + ' · ' + hi.en : 'AI 主厨推荐') + '</span>';
+  html += '<h1>零油烟 · <span class="hl">地中海</span><br>健康午餐计划</h1>';
+  html += '<p class="lead">好食材 · 好身体 · 更有活力的每一天</p>';
+  html += '<div class="chips">';
+  html += '<span class="chip">' + (hi ? hi.tn : '鱼虾鸡肉') + ' · 每日一种优质蛋白</span>';
+  html += '<span class="chip">一人一份 · 精准到克</span>';
+  html += '<span class="chip">' + COMPANY + ' 人公司餐可换算</span>';
+  html += '<span class="chip">蒸煮烤凉拌 · 几乎无油烟</span>';
+  html += '</div>';
+  html += '<div class="cta">';
+  html += '<button class="btn" data-act="genweek"' + (state.busy ? ' disabled' : '') + '>' +
+    (state.busy ? '<span class="spin"></span> 正在生成…' : (days.length ? '重新生成本周菜单' : '生成本周菜单')) + '</button>';
+  html += '<button class="btn ghost" data-act="goto" data-arg="about">了解营养理念</button>';
+  html += '</div>';
+  html += '</div>';
+
+  html += '<div class="heroart"><div class="frame">';
+  if (hiImg) html += '<img src="' + esc(hiImg) + '" alt="' + esc(hi ? hi.title : '') + '">';
+  else html += phHTML(hi ? hi.type : 'veg');
+  html += '</div>';
+  if (hi) html += '<div class="bubble">' + esc(hi.title) +
+    '<div class="sub">' + esc(hi.sub || '') + '</div></div>';
+  if (hi) {
+    html += '<div class="metrics">' +
+      metric(hi.kcal, 'kcal', '千卡') + metric(hi.p, 'g', '蛋白质') +
+      metric(hi.c, 'g', '碳水') + metric(hi.f, 'g', '脂肪') + metric(hi.fb, 'g', '膳食纤维') +
+      '</div>';
+  }
+  html += '</div></div></section>';
+
+  /* ---- 6 大好处 ---- */
+  html += '<section class="sec"><div class="wrap">';
+  html += '<div class="sec-head"><h2>地中海饮食的 6 大好处</h2></div>';
+  html += '<div class="benefits">' + [
+    ['保护心血管', 'M12 21s-7.5-4.7-7.5-10A4.5 4.5 0 0 1 12 8.2 4.5 4.5 0 0 1 19.5 11c0 5.3-7.5 10-7.5 10z'],
+    ['提升大脑功能', 'M9 4a4 4 0 0 0-4 4 3.4 3.4 0 0 0-1 6.6V17a3 3 0 0 0 3 3h1V4zM15 4a4 4 0 0 1 4 4 3.4 3.4 0 0 1 1 6.6V17a3 3 0 0 1-3 3h-1V4z'],
+    ['增强免疫力', 'M12 3l7 3v5.5c0 4.4-3 7.6-7 9.5-4-1.9-7-5.1-7-9.5V6z'],
+    ['维持健康体重', 'M5 7h14l-1.2 12.2a1.5 1.5 0 0 1-1.5 1.3H7.7a1.5 1.5 0 0 1-1.5-1.3zM9 7a3 3 0 0 1 6 0'],
+    ['延缓衰老', 'M12 3v3M12 18v3M3 12h3M18 12h3M6 6l2 2M16 16l2 2M6 18l2-2M16 8l2-2M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z'],
+    ['提升工作效率', 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2']
+  ].map(([t, d]) =>
+    '<div class="benefit"><div class="ic"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" ' +
+    'stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="' + d + '"/></svg></div>' +
+    '<div class="t">' + t + '</div></div>').join('') + '</div>';
+  html += '</div></section>';
+
+  /* ---- 本周菜单 ---- */
+  html += '<section class="sec"><div class="wrap">';
+  html += '<div class="sec-head"><h2>主厨推荐 · 本周菜单</h2>';
+  html += '<span class="sub">' + (m ? esc(m.name || '') : '') + (fb ? ' · 内置保底菜谱' : '') + '</span></div>';
+
+  if (planKeys.length > 1) {
+    html += '<div class="planbar"><div class="seg">' + planKeys.map((k) =>
+      '<button data-act="plan" data-arg="' + k + '" class="' + (state.plan === k ? 'on' : '') + '">' +
+      esc((PLANS[k] || FALLBACK[k] || {}).name || ('方案 ' + k)) + '</button>').join('') + '</div>';
+    html += '<span class="meta">' + (fb ? '点右上角「生成本周菜单」让 AI 联网重做一份' : '已由 AI 联网生成') + '</span></div>';
+  } else {
+    html += '<div class="planbar"><span class="meta">' + (fb ? '内置保底菜谱' : '已由 AI 联网生成') + '</span></div>';
+  }
+
+  if (!days.length) {
+    html += '<div class="empty"><svg width="46" height="46" viewBox="0 0 24 24" fill="none" ' +
+      'stroke="#B7CBD8" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">' +
+      '<path d="M3.5 11h17a8.5 8.5 0 0 1-17 0zM6 19.5h12"/></svg>' +
+      '<div class="et">还没有菜谱</div><div class="ed">点「生成本周菜单」，AI 主厨会联网检索真实做法，为周一到周五各设计一份午餐。</div>' +
+      '<button class="btn" data-act="genweek">开始生成</button></div>';
+  } else {
+    html += '<div class="days">' + days.map((d, i) => dayCard(d, i)).join('') + '</div>';
+  }
+  html += '</div></section>';
+
+  $('#app').innerHTML = html;
+}
+
+function metric(v, u, l) {
+  const val = (typeof v === 'number') ? (v >= 100 ? Math.round(v) : Math.round(v * 10) / 10) : v;
+  return '<div class="m"><div class="v">' + esc(val) + '<span class="u">' + u + '</span></div>' +
+    '<div class="l">' + l + '</div></div>';
+}
+
+function dayCard(d, i) {
+  const src = imgUrl(state.plan, d.id) || thumbUrl(d);
+  const isToday = i === todayIdx();
+  return '<button class="day" data-act="open" data-arg="' + d.id + '">' +
+    '<div class="thumb">' +
+      (src ? '<img src="' + esc(src) + '" alt="" loading="lazy">' : phHTML(d.type, 56)) +
+      '<span class="tag">' + esc(d.tn) + '</span>' +
+      (isToday ? '<span class="today">今天</span>' : '') +
+    '</div>' +
+    '<div class="body">' +
+      '<div class="wk">' + esc(d.wk) + ' · ' + esc(d.en) + '</div>' +
+      '<div class="title">' + esc(d.title) + '</div>' +
+      '<div class="sub">' + esc(d.sub || '') + '</div>' +
+      '<div class="foot"><span class="k">' + esc(Math.round(num(d.kcal))) + '<span class="u">kcal</span></span>' +
+      '<span class="m">' + esc(d.method || '') + '</span></div>' +
+    '</div></button>';
+}
+
+function renderDay() {
+  const d = day(state.plan, state.dayId);
+  if (!d) {
+    $('#app').innerHTML = '<div class="wrap"><div class="empty" style="margin-top:40px">' +
+      '<div class="et">没找到这一天的菜谱</div><div class="ed">请先回到首页生成五天菜单。</div>' +
+      '<button class="btn" data-act="goto" data-arg="home">返回首页</button></div></div>';
+    return;
+  }
+  const src = imgUrl(state.plan, d.id) || thumbUrl(d);
+  const serv = d.servings || COMPANY;
+  const baseTotal = num(d.total_g) || (d.ing || []).reduce((s, i) => s + num(i.g), 0);
+  const aiImg = !!imgUrl(state.plan, d.id);
+
+  let html = '<div class="wrap">';
+
+  html += '<div class="dbar">' +
+    '<button class="back" data-act="goto" data-arg="home">' +
+    '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+    'stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg> 返回菜单</button>' +
+    '<span class="spacer"></span>' +
+    '<button class="btn ghost sm" data-act="regen" data-arg="' + d.id + '">这道不满意？换一道</button>' +
+    '</div>';
+
+  html += '<div class="dgrid">';
+
+  /* 左：图 + 营养 */
+  html += '<div>';
+  html += '<div class="dhero">' + (src ? '<img src="' + esc(src) + '" alt="' + esc(d.title) + '">' : phHTML(d.type, 92)) +
+    '<span class="badge">' + esc(d.tn) + '</span>' +
+    (aiImg ? '<span class="ai">AI 生成配图</span>' : '') + '</div>';
+  html += '<div class="acts">' +
+    '<button class="btn' + (aiImg ? ' ghost' : '') + ' sm" data-act="image" data-arg="' + d.id + '"' +
+    (state.busy ? ' disabled' : '') + '>' +
+    (aiImg ? '重新生成配图' : '生成这道菜的配图') + '</button>' +
+    '</div>';
+  html += '<div class="secttl"><h3>本餐份数换算</h3></div>';
+  html += '<div class="card serve">' +
+    '<span class="lab">本餐份数</span>' +
+    '<div class="stepper"><button data-act="serv" data-arg="-1">−</button>' +
+    '<span class="num">' + serv + '</span><button data-act="serv" data-arg="1">＋</button></div>' +
+    '<div class="quick">' +
+      '<button data-act="servset" data-arg="1" class="' + (serv === 1 ? 'on' : '') + '">1 人份</button>' +
+      '<button data-act="servset" data-arg="' + COMPANY + '" class="' + (serv === COMPANY ? 'on' : '') + '">' +
+        COMPANY + ' 人公司餐</button>' +
+    '</div>' +
+    '<div class="totals">' +
+      '<div>一人份总重<b>' + gfmt(baseTotal) + '</b></div>' +
+      '<div>当前 ' + serv + ' 人份<b>' + (r1(baseTotal * serv / 1000)).toFixed(2) + ' kg</b></div>' +
+    '</div></div>';
+  html += '</div>';
+
+  /* 右：标题 + 主厨说 */
+  html += '<div class="dhead">';
+  html += '<div class="wkrow"><span class="pill navy">' + esc(d.wk) + ' · ' + esc(d.en) + '</span>' +
+    '<span class="pill blue">' + esc(d.method || '') + '</span>' +
+    (isFallback(state.plan) ? '<span class="pill green">内置保底菜谱</span>' : '') + '</div>';
+  html += '<h1>' + esc(d.title) + '</h1>';
+  if (d.sub) html += '<div class="dsub">' + esc(d.sub) + '</div>';
+  html += '<div class="tags">' + (d.tags || []).map((t) => '<span class="pill green">✓ ' + esc(t) + '</span>').join('') +
+    '<span class="pill blue">全程少油烟</span></div>';
+  html += '<div class="nutri">' +
+    ncell(d.kcal, 'kcal', '千卡') + ncell(d.p, 'g', '蛋白质') + ncell(d.c, 'g', '碳水') +
+    ncell(d.f, 'g', '脂肪') + ncell(d.fb, 'g', '膳食纤维') + '</div>';
+  if (d.chef && d.chef.say) {
+    html += '<div class="chefsay"><div class="ico">' +
+      '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#8FE0B4" stroke-width="1.7" ' +
+      'stroke-linecap="round" stroke-linejoin="round">' +
+      '<path d="M6 21h12M5 17h14v-4a7 7 0 0 0-14 0zM12 6V3"/></svg></div>' +
+      '<div><div class="t">主厨说 · 为什么这样配</div><div class="x">' + esc(d.chef.say) + '</div></div></div>';
+  }
+  html += '</div>';
+
+  html += '</div>';   /* dgrid */
+
+  /* 食材清单 */
+  html += '<div class="secttl"><h3>食材清单 · 精准到克</h3><span class="more">不满意可点「更换」</span></div>';
+  html += '<div class="card ingwrap">';
+  const groups = {};
+  (d.ing || []).forEach((it, idx) => { (groups[it.c] = groups[it.c] || []).push(Object.assign({ idx }, it)); });
+  CAT_ORDER.forEach((c) => {
+    const items = groups[c];
+    if (!items || !items.length) return;
+    const st = CAT_STYLE[c] || CAT_STYLE.veg;
+    const sub = items.reduce((s, i) => s + num(i.g), 0);
+    html += '<div class="inggrp"><div class="inggt">' +
+      '<span class="cico" style="background:' + st.bg + ';color:' + st.fg + '">' +
+      '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" ' +
+      'stroke-linecap="round" stroke-linejoin="round"><path d="' + ICONS[c] + '"/></svg></span>' +
+      '<span class="cn">' + st.label + '</span>' +
+      '<span class="cs">小计 ' + gfmt(sub * serv) + '</span></div>';
+    items.forEach((it) => {
+      const rowCls = it.added ? ' added' : (it.changed ? ' changed' : '');
+      html += '<div class="irow' + rowCls + '">' +
+        '<div class="nm"><div class="n1">' + esc(it.n) + '</div>' +
+        (it.note ? '<div class="n2">' + esc(it.note) + '</div>' : '') + '</div>' +
+        /* 主数字是「当前份数下的总量」，后面跟一人份单价 —— 写「240 g ×16」容易被读成 240×16 */
+        '<div class="wg">' + gfmt(num(it.g) * serv) +
+          (serv !== 1 ? '<span style="color:var(--ink-3);font-size:11px;font-weight:400"> ' + gfmt(num(it.g)) + '/人</span>' : '') +
+        '</div>' +
+        (it.changed || it.added
+          ? '<button class="sb gray" data-act="restore" data-arg="' + it.idx + '">还原</button>'
+          : '<button class="sb" data-act="swap" data-arg="' + it.idx + '">更换</button>') +
+        '</div>';
+    });
+    html += '</div>';
+  });
+  html += '<div class="addrow" data-act="add">＋ 添加一项自定义食材</div>';
+  html += '</div>';
+
+  /* 做法 */
+  html += '<div class="secttl"><h3>详细做法</h3></div>';
+  html += '<div class="card steps">' +
+    '<div class="stepnote">全程蒸、煮、焯水、烤箱/空气炸锅或凉拌，出锅后再淋橄榄油，几乎不产生油烟。</div>';
+  (d.steps || []).forEach((s, i) => {
+    html += '<div class="step"><span class="sn">' + (i + 1) + '</span><div>' +
+      '<div class="st">' + esc(s.t) + '</div><div class="sd">' + esc(s.d) + '</div></div></div>';
+  });
+  html += '</div>';
+  if (d.chef && d.chef.ref) {
+    html += '<div class="refnote">' +
+      '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8AA3B2" stroke-width="1.6" ' +
+      'stroke-linecap="round" style="flex:none;margin-top:2px">' +
+      '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18 15 15 0 0 1 0-18z"/></svg>' +
+      '<span>' + esc(d.chef.ref) + '；温度时间为家用烤箱参考，空气炸锅适当缩短，肉类以中心熟透为准。</span></div>';
+  }
+
+  /* 来源 */
+  if ((d.sources || []).length) {
+    html += '<div class="secttl"><h3>联网核对来源</h3><span class="more">' + d.sources.length + ' 条</span></div>';
+    html += '<div class="card srcs">' + d.sources.map((s, i) => {
+      let host = s.link;
+      try { host = new URL(s.link).hostname.replace(/^www\./, ''); } catch (e) {}
+      return '<a class="src" href="' + esc(s.link) + '" target="_blank" rel="noopener noreferrer">' +
+        '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" ' +
+        'stroke-linecap="round" style="flex:none"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/></svg>' +
+        '<span>' + esc(s.title || host) + '</span></a>';
+    }).join('') + '<div class="srctip">以上为主厨本次实际检索到的公开来源，温度与时间以此为准。</div></div>';
+  }
+
+  /* 亮点 */
+  if ((d.hl || []).length) {
+    html += '<div class="secttl"><h3>主要营养亮点</h3></div>';
+    html += '<div class="card hls">' + d.hl.map((h) => {
+      const st = HL_STYLE[h.i] || HL_STYLE.veg;
+      return '<div class="hl"><span class="hi" style="background:' + st[0] + ';color:' + st[1] + '">' +
+        '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" ' +
+        'stroke-linecap="round" stroke-linejoin="round"><path d="' + (ICONS[h.i] || ICONS.veg) + '"/></svg></span>' +
+        '<div><div class="ht">' + esc(h.n) + '</div><div class="hd">' + esc(h.d) + '</div></div></div>';
+    }).join('') + '</div>';
+  }
+
+  html += '<div class="acts">' +
+    '<button class="btn navy" data-act="regen" data-arg="' + d.id + '">这道不满意？让 AI 换一道（联网重做）</button>' +
+    '<button class="btn ghost" data-act="shop">查看采购清单</button></div>';
+
+  html += '</div>';
+  $('#app').innerHTML = html;
+}
+
+function ncell(v, u, l) {
+  const val = (typeof v === 'number') ? (v >= 100 ? Math.round(v) : Math.round(v * 10) / 10) : v;
+  return '<div class="n"><div class="v">' + esc(val) + '<span class="u">' + u + '</span></div>' +
+    '<div class="l">' + l + '</div></div>';
+}
+
+/* ---------- 采购清单 ---------- */
+/** 采购清单当前选中的天（返回实际的 day 对象数组） */
+function shopPicked() {
+  const all = (menu(state.plan) || {}).days || [];
+  const sel = state.shopDays;
+  if (!sel || !sel.length) return all;
+  return all.filter((d) => sel.indexOf(d.id) >= 0);
+}
+
+function shopData() {
+  const m = menu(state.plan);
+  const days = shopPicked();
+  const serv = days.length ? (days[0].servings || COMPANY) : COMPANY;
+  const map = {};
+  days.forEach((d) => {
+    (d.ing || []).forEach((it) => {
+      const k = it.c + '|' + it.n;
+      if (!map[k]) map[k] = { c: it.c, n: it.n, note: it.note || '', per: 0, days: [] };
+      map[k].per += num(it.g);
+      map[k].days.push(d.wk);
+    });
+  });
+  return { serv, items: Object.keys(map).map((k) => map[k]) };
+}
+
+function renderShop() {
+  const m = menu(state.plan);
+  const all = m ? (m.days || []) : [];
+  const picked = shopPicked();
+  const { serv, items } = shopData();
+  const days = picked.length;
+
+  let html = '<div class="wrap"><section class="sec" style="margin-top:26px">';
+  html += '<div class="sec-head"><h2>采购清单</h2>' +
+    '<span class="sub">' + (m ? esc(m.name || '') : '') + ' · ' + days + ' 天 · 按 ' + serv + ' 人份</span></div>';
+
+  if (!all.length) {
+    html += '<div class="empty"><div class="et">还没有菜单</div>' +
+      '<div class="ed">先生成本周菜单，这里会自动汇总各天食材的采购量。</div>' +
+      '<button class="btn" data-act="genweek">生成本周菜单</button></div></section></div>';
+    $('#app').innerHTML = html;
+    return;
+  }
+
+  /* 采购范围：只买一天、买两三天、或整周五天，都比写死整周实用。
+     点星期可以任意组合，点「全周」回到全部。 */
+  const allOn = !state.shopDays || !state.shopDays.length;
+  html += '<div class="shoppick"><span class="sp-l">采购范围</span>';
+  html += '<span class="sp-c' + (allOn ? ' on' : '') + '" data-act="shopall">全周 ' +
+    all.length + ' 天</span>';
+  all.forEach((d) => {
+    const on = !allOn && state.shopDays.indexOf(d.id) >= 0;
+    html += '<span class="sp-c' + (on ? ' on' : '') + '" data-act="shopday" data-arg="' +
+      esc(d.id) + '">' + esc(d.wk) + '</span>';
+  });
+  html += '<span class="sp-t">' + (allOn ? '当前：全周' : '当前：' +
+    esc(picked.map((d) => d.wk).join('、'))) + '</span></div>';
+
+  if (!items.length) {
+    html += '<div class="empty"><div class="et">没有选中任何一天</div>' +
+      '<div class="ed">点上面的星期任选一天或几天，也可以点「全周」。</div></div></section></div>';
+    $('#app').innerHTML = html;
+    return;
+  }
+
+  const grand = items.reduce((s, i) => s + i.per * serv, 0);
+  const label = allOn ? ('全周 ' + all.length + ' 天') : picked.map((d) => d.wk).join('、');
+  html += '<div class="shopnote">已按 <b>' + serv + ' 人份</b> 汇总 <b>' + esc(label) +
+    '</b> 的食材，合计约 <b>' + (r1(grand / 1000)).toFixed(1) + ' kg</b>。' +
+    '同类食材在不同天出现时会自动合并；调味料按一人份累计，实际调味可按口味增减。</div>';
+
+  CAT_ORDER.forEach((c) => {
+    const list = items.filter((i) => i.c === c).sort((a, b) => b.per - a.per);
+    if (!list.length) return;
+    const st = CAT_STYLE[c] || CAT_STYLE.veg;
+    const sub = list.reduce((s, i) => s + i.per * serv, 0);
+    html += '<div class="card shopgrp"><div class="gt">' +
+      '<span class="cico" style="width:26px;height:26px;border-radius:8px;display:grid;place-items:center;background:' +
+      st.bg + ';color:' + st.fg + '">' +
+      '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" ' +
+      'stroke-linecap="round" stroke-linejoin="round"><path d="' + ICONS[c] + '"/></svg></span>' +
+      '<span class="cn">' + st.label + '</span><span class="cs">小计 ' +
+      (r1(sub / 1000)).toFixed(2) + ' kg</span></div>';
+    list.forEach((i) => {
+      html += '<div class="shoprow"><span class="nm">' + esc(i.n) + '</span>' +
+        '<span class="per">一人份 ' + gfmt(i.per) + ' × ' + serv + ' 份 · ' + i.days.length + ' 天用</span>' +
+        '<span class="g">' + gfmt(i.per * serv) + '</span></div>';
+    });
+    html += '</div>';
+  });
+  html += '</section></div>';
+  $('#app').innerHTML = html;
+}
+
+/* ---------- 营养理念 / 设置 ---------- */
+function renderAbout() {
+  let html = '<div class="wrap"><section class="sec" style="margin-top:26px">';
+  html += '<div class="sec-head"><h2>营养理念</h2><span class="sub">AI 主厨遵循的硬性准则</span></div>';
+  html += '<div class="aboutgrid">';
+
+  html += '<div class="card ab"><h4>地中海饮食结构</h4><ul>' +
+    '<li><b>大量深色蔬菜</b>：每餐蔬菜合计 250–350 g，羽衣甘蓝、菠菜、芥蓝、西兰花、彩椒、菌菇轮换。</li>' +
+    '<li><b>全谷杂豆主食</b>：藜麦、糙米、大麦、燕麦米、全麦意面、鹰嘴豆、白腰豆、小扁豆。</li>' +
+    '<li><b>健康脂肪</b>：特级初榨橄榄油、坚果、牛油果、种子；橄榄油尽量出锅后再淋。</li>' +
+    '<li><b>少盐少重口</b>：用柠檬、大蒜、香草、醋、第戎芥末调味。</li>' +
+    '<li><b>红肉少量</b>：牛猪选最瘦部位，奶制品少量。</li></ul></div>';
+
+  html += '<div class="card ab"><h4>最少油烟（硬性要求）</h4><ul>' +
+    '<li>只允许 <b>烤箱烘烤、蒸、水煮、白灼、焯水、炖煮、凉拌</b>。</li>' +
+    '<li class="bad">禁止爆炒、煎、炸、炝锅、大火热油等任何起油烟的做法。</li>' +
+    '<li>同盘烤制、一锅出，方便 16 人份批量备餐。</li>' +
+    '<li>温度与时间必须来自联网检索到的真实菜谱，并附上来源链接。</li></ul></div>';
+
+  html += '<div class="card ab"><h4>荤菜与选材</h4><ul>' +
+    '<li>每天<b>一个荤菜</b>，周一鱼 → 周二虾 → 周三鸡肉 → 周四牛肉 → 周五猪肉。</li>' +
+    '<li><b>海鱼选性价比高的</b>：青花鱼、沙丁鱼、秋刀鱼、龙利鱼柳。不用三文鱼、鳕鱼等高价鱼。</li>' +
+    '<li><b>海虾选性价比高的</b>：冷冻南美白虾仁、北极甜虾。</li>' +
+    '<li>其余食材一律选营养最全面、营养密度最高的品种。</li></ul></div>';
+
+  html += '<div class="card ab"><h4>克重与份量</h4><ul>' +
+    '<li>所有克重为<b>一人份可食部生重</b>（净重），含调味料。</li>' +
+    '<li>荤菜蛋白 100–150 g、全谷杂豆主食生重 45–60 g、蔬菜 250–350 g。</li>' +
+    '<li>一人份总重通常落在 600–900 g。</li>' +
+    '<li>每样非调味食材都给 2–3 个同类替代项，可按营养当量折算更换。</li></ul></div>';
+
+  html += '<div class="card ab"><h4>如何保证不编造</h4><ul>' +
+    '<li>每道菜开做前，主厨<b>必须先联网检索</b>真实存在的公开菜谱。</li>' +
+    '<li>检索不到依据的做法不写；温度时间以检索结果为准。</li>' +
+    '<li>生成后校验：总重区间、蔬菜克重、步骤数量、是否拿到来源，不达标会提示。</li>' +
+    '<li>每份菜谱都附<b>实际检索到的来源链接</b>，可自行核对。</li></ul></div>';
+
+  html += '<div class="card ab"><h4>这份网页版是怎么跑的</h4><ul>' +
+    (USE_BACKEND
+      ? '<li><b>后端模式</b>：网页不持有任何 API Key，请求全部发到 ' +
+        '<span style="font-size:12px">' + esc(API_BASE) + '</span>，Key 只存在于服务端。</li>'
+      : '<li><b>直连模式</b>：浏览器直接调用智谱开放平台 API，不需要服务器、域名和备案。' +
+        '代价是页面里内置的 Key 等于公开。</li>') +
+    '<li>菜谱由 <b>' + esc(USE_BACKEND ? '服务端配置的主厨模型' : (MODELS.chat || 'glm-4.7')) +
+    '</b> 联网检索生成，配图由 <b>' + esc(MODELS.image || 'cogview-3-flash') + '</b> 生成（免费模型）。</li>' +
+    '<li>没有网络、后端连不上或 Key 失效时，自动回落到<b>内置的预生成菜谱</b>，不会白屏。</li>' +
+    '<li>菜单、份数、配图都保存在浏览器本地，下次打开还在。</li>' +
+    (USE_BACKEND
+      ? '<li>后端镜像里已烘焙好预置菜单与配图，<b>新访客打开就能看到，不消耗任何额度</b>。</li>'
+      : '<li>想公开分享又不暴露 Key？改 <code class="mono">CONF.MODE</code> 为 ' +
+        '<code class="mono">backend</code> 并指向自己的后端，再用 ' +
+        '<code class="mono">tools/make_public_bundle.js</code> 打包。</li>') +
+    '</ul></div>';
+
+  html += '</div></section></div>';
+  $('#app').innerHTML = html;
+}
+
+function renderSetup() {
+  const own = (function () { try { return localStorage.getItem(LS.key) || ''; } catch (e) { return ''; } })();
+  const model = chatModel();
+  let html = '<div class="wrap"><section class="sec" style="margin-top:26px">';
+  html += '<div class="sec-head"><h2>设置</h2><span class="sub">可选 · 不改也能正常使用</span></div>';
+  html += '<div class="aboutgrid"><div>';
+
+  if (USE_BACKEND) {
+    html += '<div class="card ab">' +
+      '<div class="okbox"><b>当前是「后端模式」：</b>这份网页不持有任何 API Key，' +
+      '所有请求都发到你自己部署的后端，Key 只存在于服务端。' +
+      '这是公开分享时最安全的做法 —— 别人拿到网页源码也偷不走 Key。</div>' +
+      '<div class="setrow"><label>后端地址</label>' +
+      '<div class="hint" style="margin-top:0"><code class="mono">' + esc(API_BASE) + '</code><br>' +
+      '写在 <code class="mono">网页版/index.html</code> 顶部的 <code class="mono">CONF.BACKEND_BASE</code>。' +
+      '要换地址就改那里。</div></div>' +
+      '<div class="setrow"><label>主厨模型</label>' +
+      '<div class="hint" style="margin-top:0">由后端环境变量 <code class="mono">CHEF_MODEL</code> 决定，' +
+      '网页端改不了 —— 想换模型请改服务端配置后重新部署。</div></div>' +
+      '<div style="display:flex;gap:10px;flex-wrap:wrap">' +
+        '<button class="btn sm" data-act="testkey">测试后端连接</button>' +
+        '<button class="btn ghost sm" data-act="clearmenu">清除本地缓存菜单</button>' +
+      '</div></div>';
+  } else {
+    html += '<div class="card ab">' +
+      '<div class="warnbox"><b>关于内置 Key：</b>为了让任何人打开就能用，这份网页内置了一个智谱 API Key。' +
+      '由于网页源码对所有人可见，Key 等于公开 —— 请不要用它跑大量任务。' +
+      '如果你自己有 Key，填在下面覆盖它，会更安全、也更稳定。</div>' +
+      '<div class="setrow"><label for="k">你自己的 API Key（留空则使用内置 Key）</label>' +
+      '<input id="k" type="password" placeholder="格式：xxxxxxxx.xxxxxxxxxxxxxxxx" value="' + esc(own) + '">' +
+      '<div class="hint">保存在浏览器本地（localStorage），不会上传到任何服务器。' +
+      '获取地址：智谱开放平台 → API Keys。</div></div>' +
+      '<div class="setrow"><label for="m">主厨模型</label>' +
+      '<select id="m">' +
+        opt('glm-4.7', model) + opt('glm-4.5-air', model) + opt('glm-4-flash', model) +
+      '</select>' +
+      '<div class="hint">glm-4.7 质量最好（默认）；glm-4.5-air 更快更省；glm-4-flash 最便宜，适合公开分享时压成本。</div></div>' +
+      '<div style="display:flex;gap:10px;flex-wrap:wrap">' +
+        '<button class="btn sm" data-act="savset">保存设置</button>' +
+        '<button class="btn ghost sm" data-act="testkey">测试连接</button>' +
+        '<button class="btn ghost sm" data-act="clearmenu">清除已生成菜单</button>' +
+      '</div></div>';
+  }
+
+  html += '</div><div>';
+  html += '<div class="card ab"><h4>当前状态</h4><ul>' +
+    '<li>运行模式：<span class="modepill ' + (USE_BACKEND ? 'backend' : 'direct') + '"><i></i>' +
+      (USE_BACKEND ? '后端模式 · Key 在服务端' : '直连模式 · 浏览器直调智谱') + '</span></li>' +
+    (USE_BACKEND
+      ? '<li>主厨模型：<b>由服务端决定</b></li>'
+      : '<li>主厨模型：<b>' + esc(model) + '</b></li>' +
+        '<li>Key 来源：<b>' + (own ? '你自己填的' : '内置默认') + '</b></li>') +
+    '<li>菜单来源：<b>' + (isFallback(state.plan) ? '内置保底菜谱' : 'AI 已生成（保存在本地）') + '</b></li>' +
+    '<li>已缓存配图：<b>' + Object.keys(state.imgs).length + ' 张</b></li>' +
+    '<li>接口地址：<span style="font-size:12px;color:var(--ink-3)">' + esc(API_BASE) + '</span></li>' +
+    '</ul></div>';
+
+  html += '<div class="card ab" style="margin-top:16px"><h4>关于配图</h4><ul>' +
+    '<li>配图由 <b>' + esc(MODELS.image || 'cogview-3-flash') + '</b> 生成，属于<b>免费</b>模型，不额外计费。</li>' +
+    '<li>生成约需 8–10 秒；同一个菜重复生成会命中上游缓存。</li>' +
+    '<li>图片链接带签名、有效期约 7 天，所以本页缓存的是<b>链接</b>而不是图片本身。</li>' +
+    '<li>图片会带有「AI 生成」标识，这是法规要求，请勿去除。</li></ul></div>';
+  html += '</div></div></section></div>';
+  $('#app').innerHTML = html;
+}
+function opt(v, cur) {
+  return '<option value="' + v + '"' + (v === cur ? ' selected' : '') + '>' + v + '</option>';
+}
+
+/* ---------- 弹层 / 进度 / toast ---------- */
+function renderLayers() {
+  let html = '';
+
+  if (state.sheet) {
+    const s = state.sheet;
+    const cats = [['', '全部']].concat(CAT_ORDER.filter((c) => c !== 'season')
+      .map((c) => [c, (CAT_STYLE[c] || {}).label || c]));
+    html += '<div class="mask" data-act="closesheet"></div><div class="sheet">';
+    html += '<div class="sh"><h4>' + esc(s.title) + '</h4><p>' + esc(s.hint) + '</p></div>';
+    html += '<div class="filters">' + cats.map(([k, t]) =>
+      '<button data-act="sfilter" data-arg="' + k + '" class="' + (s.cat === k ? 'on' : '') + '">' + t + '</button>'
+    ).join('') + '</div>';
+    html += '<div class="searchbox"><input id="skw" placeholder="搜索食材，如 西兰花 / 糙米" value="' + esc(s.kw || '') + '"></div>';
+    html += '<div class="slist">';
+    if (!s.list.length) html += '<div style="padding:26px;text-align:center;color:var(--ink-3);font-size:13.5px">没有匹配的食材，可在下方自定义一项</div>';
+    s.list.forEach((it, i) => {
+      html += '<div class="srow" data-act="pick" data-arg="' + i + '">' +
+        '<div class="an"><div class="a1">' + esc(it.n) + (it.rec ? '<span class="rec">AI 推荐</span>' : '') + '</div>' +
+        '<div class="a2">' + esc(it.note || '') + '</div></div>' +
+        '<span class="ag">' + gfmt(it.g) + '</span><span class="pk">选用</span></div>';
+    });
+    html += '</div>';
+    html += '<div class="custom"><div class="t">没找到？自定义一项食材</div><div class="f">' +
+      '<input id="cn" placeholder="食材名称" value="' + esc(s.custom ? s.custom.n : '') + '">' +
+      '<input id="cg" type="number" placeholder="一人份克重(g)" style="max-width:150px" value="' +
+        esc(s.custom ? s.custom.g : '') + '">' +
+      '<select id="cc">' + CAT_ORDER.map((c) =>
+        '<option value="' + c + '"' + (s.custom && s.custom.c === c ? ' selected' : '') + '>' +
+        ((CAT_STYLE[c] || {}).label || c) + '</option>').join('') + '</select>' +
+      '<button class="btn sm" data-act="custom">确认' + (s.mode === 'add' ? '添加' : '替换') + '</button>' +
+      '</div></div>';
+    html += '<div class="sclose" data-act="closesheet">取消</div></div>';
+  }
+
+  if (state.busy) {
+    const b = state.busy;
+    html += '<div class="genmask"><div class="genbox">' +
+      '<h4>' + esc(b.title) + '</h4>' +
+      '<div class="msg">' + esc(b.msg || '') + '</div>' +
+      '<div class="bar"><i style="width:' + Math.max(0, Math.min(100, b.pct || 0)) + '%"></i></div>' +
+      '<div class="note">' + esc(b.note || '') + '</div>' +
+      (b.err ? '<div class="err">' + esc(b.err) + '</div>' : '') +
+      '<div class="close" data-act="closebusy">' + (b.err ? '关闭' : '后台运行，先看看别的') + '</div>' +
+      '</div></div>';
+  }
+
+  if (state.toast) html += '<div class="toast">' + esc(state.toast) + '</div>';
+  $('#layers').innerHTML = html;
+
+  if (state.sheet) {
+    const kw = $('#skw');
+    if (kw && document.activeElement !== kw) { /* 保持输入焦点 */ }
+  }
+}
+
+function render() {
+  renderChrome();
+  if (state.view === 'home') renderHome();
+  else if (state.view === 'day') renderDay();
+  else if (state.view === 'shop') renderShop();
+  else if (state.view === 'setup') renderSetup();
+  else renderAbout();
+  renderLayers();
+  window.scrollTo(0, 0);
+}
+
+/* =========================================================================
+   6. 业务动作
+   ========================================================================= */
+function busy(title, msg, pct, note) {
+  state.busy = { title, msg, pct: pct || 0, note: note || '', err: '' };
+  renderLayers();
+  renderChrome();          // 顶栏按钮要立刻变成「正在生成…」并禁用
+}
+function busyMsg(msg, pct) {
+  if (!state.busy) return;
+  state.busy.msg = msg;
+  if (pct != null) state.busy.pct = pct;
+  renderLayers();
+}
+function busyErr(e) {
+  const msg = (e && e.message) || String(e);
+  /* 用户可能点了「后台运行，先看看别的」把浮层关掉 —— 这时不能再静默吞掉错误，
+     否则界面上一点反馈都没有，看起来就像「点了没反应」。 */
+  if (!state.busy) { toast('生成失败：' + msg.slice(0, 70)); return; }
+  state.busy.err = msg;
+  state.busy.title = '生成失败';
+  renderLayers();
+  renderChrome();
+}
+function busyEnd() { state.busy = null; render(); }
+
+async function doGenWeek() {
+  if (state.busy) return;
+  const plan = state.plan;
+  const total = DAY_PLAN.length;
+  busy('AI 主厨正在设计本周菜单',
+    '正在联网检索真实菜谱，核对温度与时间…', 4,
+    '共 ' + total + ' 天，每天一个荤菜；每天都会先联网检索再落笔，全程约 1–3 分钟。');
+
+  /* 后端模式下整周是一个任务，进度由后端回报，这里只负责转发到界面 */
+  if (USE_BACKEND) return genWeekViaBackend(plan, total);
+
+  const days = [];
+  const batch = 2;                      // 与后端 MAX_CONCURRENCY 对齐，避免 429
+  try {
+    for (let i = 0; i < total; i += batch) {
+      const slice = DAY_PLAN.slice(i, i + batch);
+      const avoid = days.map((d) => d.title).filter(Boolean);
+      busyMsg('正在联网检索并设计 ' + slice.map((m) => m.wk).join('、') + ' 的午餐…',
+        4 + Math.round((i / total) * 90));
+      const results = await Promise.all(slice.map((meta) => generateDay(meta, plan, avoid, '')));
+      results.forEach((d) => days.push(d));
+      busyMsg('已完成 ' + days.length + '/' + total + ' 天', 4 + Math.round((days.length / total) * 90));
+    }
+    const order = {};
+    DAY_PLAN.forEach((m, i) => { order[m.id] = i; });
+    /* 注意：不能写 `order[a.id] || 99` —— 周一的序号是 0，会被当成假值排到最后 */
+    const rank = (d) => (order[d.id] === undefined ? 99 : order[d.id]);
+    days.sort((a, b) => rank(a) - rank(b));
+
+    const old = state.menus[plan] || {};
+    const oldServ = old.days && old.days[0] ? old.days[0].servings : COMPANY;
+    days.forEach((d) => { d.servings = oldServ || COMPANY; });
+
+    state.menus[plan] = {
+      plan,
+      name: (PLANS[plan] || {}).name || ('方案 ' + plan),
+      desc: (PLANS[plan] || {}).desc || '',
+      servings: oldServ || COMPANY,
+      days
+    };
+    writeMenus();
+    busyMsg('完成！', 100);
+    setTimeout(() => { state.busy = null; state.view = 'home'; render(); toast('本周菜单已生成'); }, 420);
+  } catch (e) {
+    busyErr(e);
+  }
+}
+
+function currentDay() { return day(state.plan, state.dayId); }
+
+/* 后端模式：一次 POST 提交整周生成，然后轮询进度。
+   好处是并发闸门、缓存、去重都在服务端，浏览器只负责显示。 */
+async function genWeekViaBackend(plan, total) {
+  try {
+    const payload = await runJob(
+      '/api/menu/' + encodeURIComponent(plan) + '/generate',
+      { plan: plan, force: true },
+      (j) => {
+        const pct = (j.total ? 4 + Math.round((num(j.progress) / num(j.total)) * 90) : 12);
+        busyMsg(j.message || '主厨正在联网检索并落笔…', Math.min(pct, 94));
+      });
+
+    const days = (payload && payload.days) || [];
+    if (!days.length) throw new ApiError('后端没有返回任何菜谱，请检查服务端日志。');
+
+    const meta = PLANS[plan] || {};
+    state.menus[plan] = {
+      plan,
+      name: payload.name || meta.name || ('方案 ' + plan),
+      desc: payload.desc || meta.desc || '',
+      servings: payload.servings || COMPANY,
+      days
+    };
+    writeMenus();
+    busyMsg('完成！', 100);
+    setTimeout(() => { state.busy = null; state.view = 'home'; render(); toast('本周菜单已生成'); }, 420);
+  } catch (e) {
+    busyErr(e);
+  }
+}
+
+function saveDay(d) {
+  const plan = state.plan;
+  /* 用户可能在还没生成菜单时就直接改内置保底菜谱 —— 这时要先把保底数据
+     克隆进 state.menus，否则 saveDay 无处可写，改动会被静默丢掉。 */
+  if (!state.menus[plan] && FALLBACK[plan]) {
+    state.menus[plan] = JSON.parse(JSON.stringify(FALLBACK[plan]));
+  }
+  const m = state.menus[plan];
+  if (!m) return;
+  m.days = m.days || [];
+  const i = m.days.findIndex((x) => x.id === d.id);
+  if (i < 0) m.days.push(d); else m.days[i] = d;
+  writeMenus();
+}
+
+async function doSwap(dayObj, idx, want) {
+  busy('正在更换食材', '主厨正在联网核对替代食材的营养当量…', 30,
+    '换一样食材会连带重算整道菜的热量与营养素。');
+  try {
+    /* 后端模式：归一化、营养护栏、克重折算都在服务端做完了，前端只负责落库 */
+    if (USE_BACKEND) return await swapViaBackend(dayObj, idx, want);
+
+    const target = dayObj.ing[idx];
+    const user = buildSwapPrompt(dayObj, target, want || '');
+    const r = await chatJson(PROMPTS.swapSystem, user, { search:true });
+    const data = r.json || {};
+
+    const ni = (data.ing && typeof data.ing === 'object' && !Array.isArray(data.ing)) ? data.ing : {};
+    const cat = normCat(ni.c || target.c);
+    const rg = GRAM_RANGE[cat] || [1, 300];
+    let g = num(ni.g) || target.g;
+    g = Math.max(rg[0], Math.min(rg[1], g));
+    const name = String(ni.n || target.n).trim();
+
+    const replaced = {
+      c: cat, n: name, g: r1(g),
+      note: String(ni.note || '已按你的要求更换').trim(),
+      alt: cleanAlt(ni.alt, cat), changed: true
+    };
+
+    const ings = dayObj.ing.map((x, i) => (i === idx ? replaced : Object.assign({}, x)));
+    const steps = (dayObj.steps || []).map((s) => Object.assign({}, s));
+    for (const p of (data.steps_patch || [])) {
+      if (!p || typeof p !== 'object') continue;
+      const pi = Math.round(num(p.index)) - 1;
+      const dd = String(p.d || '').trim();
+      if (dd && pi >= 0 && pi < steps.length) steps[pi].d = dd;
+    }
+
+    const updated = Object.assign({}, dayObj);
+    updated.ing = ings;
+    updated.steps = steps;
+    const oldTotal = (dayObj.ing || []).reduce((s, i) => s + num(i.g), 0) || 1;
+    const newTotal = ings.reduce((s, i) => s + num(i.g), 0) || 1;
+    updated.total_g = r1(newTotal);
+
+    /* 护栏：模型偶尔把 macros 写成「被换那样食材」的营养而不是整道菜合计。
+       超出合理区间就按总重比例回退，避免脏数据。 */
+    const mac = (data.macros && typeof data.macros === 'object') ? data.macros : {};
+    const TOL = { kcal:[0.65,1.55], p:[0.45,1.9], c:[0.4,2.0], f:[0.3,2.2], fb:[0.3,2.5] };
+    let ok = 0;
+    for (const k of Object.keys(TOL)) {
+      const o = num(dayObj[k]);
+      if (o <= 0) continue;
+      const n = num(mac[k]);
+      if (n <= 0 || n < TOL[k][0] * o || n > TOL[k][1] * o) { ok = -1; break; }
+      ok++;
+    }
+    if (ok >= 2) {
+      ['kcal','p','c','f','fb'].forEach((k) => {
+        if (mac[k] != null) updated[k] = (k === 'kcal') ? Math.round(num(mac[k])) : r1(num(mac[k]));
+      });
+    } else {
+      const ratio = newTotal / oldTotal;
+      ['kcal','p','c','f','fb'].forEach((k) => {
+        const base = num(dayObj[k]);
+        updated[k] = (k === 'kcal') ? Math.round(base * ratio) : r1(base * ratio);
+      });
+      updated.swap_note = (String(data.reason || '').trim() + '（营养已按食材总重比例重算）').trim();
+    }
+
+    const srcs = collectSources({}, r.sources);
+    if (srcs.length) updated.sources = srcs;
+    if (!updated.swap_note) updated.swap_note = String(data.reason || '').trim();
+
+    /* 菜变了，原来的配图就对不上了 —— 清掉，下次重新生成 */
+    delete state.imgs[state.plan + ':' + dayObj.id];
+    writeImgs();
+
+    saveDay(updated);
+    state.busy = null;
+    render();
+    toast('已换成「' + name + '」' + (updated.swap_note ? ' · ' + updated.swap_note.slice(0, 40) : ''));
+  } catch (e) {
+    busyErr(e);
+  }
+}
+
+/* 后端模式换食材：POST /api/swap → 轮询 → job.result = {day, note} */
+async function swapViaBackend(dayObj, idx, want) {
+  const res = await runJob('/api/swap', {
+    plan: state.plan, day_id: dayObj.id, ing_index: idx, want: want || ''
+  }, (j) => { busyMsg(j.message || '主厨正在联网核对替代食材…', 45); });
+
+  const updated = res && res.day;
+  if (!updated || !updated.ing) throw new ApiError('后端没有返回更换后的菜谱。');
+
+  /* 菜变了，原来的配图就对不上了 —— 清掉，下次重新生成 */
+  delete state.imgs[state.plan + ':' + dayObj.id];
+  writeImgs();
+
+  saveDay(updated);
+  state.busy = null;
+  render();
+  const name = (updated.ing[idx] || {}).n || '新食材';
+  const note = updated.swap_note || (res && res.note) || '';
+  toast('已换成「' + name + '」' + (note ? ' · ' + String(note).slice(0, 40) : ''));
+}
+
+function doRestore(idx) {
+  const d = currentDay();
+  if (!d) return;
+  /* 从当前方案的保底数据里取回原始值；若本来就是 AI 生成的，则退回内置同一天的原始食材 */
+  const fb = FALLBACK[state.plan];
+  const base = fb && (fb.days || []).find((x) => x.id === d.id);
+  const orig = base && (base.ing || [])[idx];
+  if (!orig) { toast('找不到原始食材，可点「换一道」整日重做'); return; }
+  const ings = d.ing.map((x, i) => (i === idx ? Object.assign({}, orig) : Object.assign({}, x)));
+  const nd = Object.assign({}, d, { ing: ings });
+  nd.total_g = r1(ings.reduce((s, i) => s + num(i.g), 0));
+  saveDay(nd);
+  render();
+  toast('已还原为「' + orig.n + '」');
+}
+
+async function doRegen(id) {
+  const d = day(state.plan, id);
+  if (!d || state.busy) return;
+  const meta = DAY_PLAN.find((m) => m.id === d.id);
+  if (!meta) { toast('找不到这一天的荤菜配置'); return; }
+  busy('正在换一道新菜', '主厨正在联网检索「' + d.tn + '」的其他做法…', 35,
+    '会避开原来的菜名，并重新联网核对温度与时间。');
+  try {
+    if (USE_BACKEND) return await regenViaBackend(d, id);
+
+    const avoid = (menu(state.plan).days || []).map((x) => x.title).filter(Boolean);
+    if (d.title && avoid.indexOf(d.title) < 0) avoid.push(d.title);
+    const user = buildRegenPrompt(meta, d.title || '', '', (PLANS[state.plan] || {}).style || '', avoid, COMPANY);
+    const r = await chatJson(PROMPTS.chefSystem, user, { search:true });
+    const nd = normalizeDay(r.json, meta, state.plan, r.sources);
+    nd.servings = d.servings || COMPANY;
+    delete state.imgs[state.plan + ':' + id];
+    writeImgs();
+    saveDay(nd);
+    state.busy = null;
+    render();
+    toast('已换成「' + nd.title + '」');
+  } catch (e) {
+    busyErr(e);
+  }
+}
+
+/* 后端模式整日重做：POST /api/regenerate-day → 轮询 → job.result = {day, warnings} */
+async function regenViaBackend(d, id) {
+  const res = await runJob('/api/regenerate-day', {
+    plan: state.plan, day_id: id, feedback: ''
+  }, (j) => { busyMsg(j.message || '主厨正在联网检索新做法…', 60); });
+
+  const nd = res && res.day;
+  if (!nd || !nd.ing) throw new ApiError('后端没有返回新的菜谱。');
+  nd.servings = d.servings || COMPANY;
+
+  delete state.imgs[state.plan + ':' + id];
+  writeImgs();
+  saveDay(nd);
+  state.busy = null;
+  render();
+  toast('已换成「' + (nd.title || '新菜') + '」');
+}
+
+async function doImage(id) {
+  const d = day(state.plan, id);
+  if (!d || state.busy) return;
+  busy('正在生成配图', '按这道菜的食材与做法生成图片，约需 8–10 秒…', 40,
+    '使用免费图像模型 ' + (MODELS.image || 'cogview-3-flash') + '，不额外计费。');
+  try {
+    if (USE_BACKEND) {
+      const res = await runJob('/api/image/one',
+        { plan: state.plan, day_id: id, force: true },
+        (j) => { busyMsg(j.message || 'AI 正在按菜名与食材作画…', 60); });
+      const raw = (res && (res.url || (res.img_key ? '/api/image/' + res.img_key + '.png' : ''))) || '';
+      const url = backendUrl(raw);
+      if (!url) throw new ApiError('后端没有返回图片地址。');
+      state.imgs[state.plan + ':' + id] = { url, ts: Date.now() };
+      writeImgs();
+      state.busy = null;
+      render();
+      toast(res && res.cached ? '已命中缓存，直接显示' : '配图已生成');
+      return;
+    }
+
+    const url = await generateImage(d);
+    state.imgs[state.plan + ':' + id] = { url, ts: Date.now() };
+    writeImgs();
+    state.busy = null;
+    render();
+    toast('配图已生成');
+  } catch (e) {
+    busyErr(e);
+  }
+}
+
+function openSwapSheet(idx) {
+  const d = currentDay();
+  if (!d) return;
+  const it = d.ing[idx];
+  const cat = it.c === 'season' ? 'veg' : it.c;
+  const alts = (it.alt || []).map((a) => ({ n: a[0], g: a[1], note: a[2], rec: true }));
+  const names = new Set(alts.map((a) => a.n));
+  const libs = (LIB[cat] || []).filter((x) => !names.has(x[0]))
+    .map((x) => ({ n: x[0], g: x[1], note: x[2], rec: false }));
+  state.sheet = {
+    mode: 'swap', dayId: d.id, idx, cat, kw: '', custom: null,
+    title: '更换「' + it.n + '」',
+    hint: '选一个替代食材，主厨会联网核对并按营养当量折算克重。AI 推荐在前，下面是同类别的高营养密度食材。',
+    list: alts.concat(libs)
+  };
+  renderLayers();
+}
+
+function openAddSheet() {
+  const d = currentDay();
+  if (!d) return;
+  state.sheet = {
+    mode: 'add', dayId: d.id, idx: -1, cat: 'veg', kw: '', custom: null,
+    title: '添加一项自定义食材',
+    hint: '直接加进这份菜谱，克重按一人份填写；不会调用 AI。',
+    list: CAT_ORDER.filter((c) => c !== 'season')
+      .reduce((acc, c) => acc.concat((LIB[c] || []).map((x) => ({ n: x[0], g: x[1], note: x[2], rec: false }))), [])
+  };
+  renderLayers();
+}
+
+function filterSheetList() {
+  const s = state.sheet;
+  if (!s) return;
+  const kw = (s.kw || '').trim().toLowerCase();
+  let all;
+  if (s.mode === 'swap') {
+    const d = currentDay();
+    const it = d ? d.ing[s.idx] : null;
+    const cat = s.cat || (it ? it.c : 'veg');
+    const alts = it ? (it.alt || []).map((a) => ({ n:a[0], g:a[1], note:a[2], rec:true })) : [];
+    const names = new Set(alts.map((a) => a.n));
+    const libs = (LIB[cat === 'season' ? 'veg' : cat] || []).filter((x) => !names.has(x[0]))
+      .map((x) => ({ n:x[0], g:x[1], note:x[2], rec:false }));
+    all = alts.concat(libs);
+  } else {
+    const cats = s.cat ? [s.cat] : CAT_ORDER.filter((c) => c !== 'season');
+    all = cats.reduce((acc, c) => acc.concat((LIB[c] || []).map((x) => ({ n:x[0], g:x[1], note:x[2], rec:false }))), []);
+  }
+  s.list = kw ? all.filter((x) => x.n.toLowerCase().indexOf(kw) >= 0 || (x.note || '').toLowerCase().indexOf(kw) >= 0) : all;
+}
+
+function pickFromSheet(i) {
+  const s = state.sheet;
+  if (!s) return;
+  const item = s.list[i];
+  if (!item) return;
+  const d = currentDay();
+  if (!d) return;
+  if (s.mode === 'add') {
+    const rg = GRAM_RANGE[s.cat] || [1, 300];
+    const g = Math.max(rg[0], Math.min(rg[1], item.g));
+    const nd = Object.assign({}, d);
+    nd.ing = d.ing.concat([{ c: s.cat, n: item.n, g: r1(g), note: item.note || '', alt: [], added: true }]);
+    nd.total_g = r1(nd.ing.reduce((x, y) => x + num(y.g), 0));
+    state.sheet = null;
+    saveDay(nd);
+    render();
+    toast('已添加「' + item.n + '」');
+  } else {
+    const idx = s.idx;
+    state.sheet = null;
+    renderLayers();
+    doSwap(d, idx, item.n);
+  }
+}
+
+function customFromSheet() {
+  const s = state.sheet;
+  if (!s) return;
+  const n = ($('#cn') || {}).value ? $('#cn').value.trim() : '';
+  const g = num(($('#cg') || {}).value);
+  const c = ($('#cc') || {}).value || s.cat || 'veg';
+  if (!n) { toast('请填写食材名称'); return; }
+  if (g <= 0) { toast('请填写一人份克重'); return; }
+  const d = currentDay();
+  if (!d) return;
+
+  if (s.mode === 'add') {
+    const rg = GRAM_RANGE[c] || [1, 300];
+    const nd = Object.assign({}, d);
+    nd.ing = d.ing.concat([{ c, n, g: r1(Math.max(rg[0], Math.min(rg[1], g))),
+      note: '自定义添加', alt: [], added: true }]);
+    nd.total_g = r1(nd.ing.reduce((x, y) => x + num(y.g), 0));
+    state.sheet = null;
+    saveDay(nd);
+    render();
+    toast('已添加「' + n + '」');
+  } else {
+    const idx = s.idx;
+    state.sheet = null;
+    renderLayers();
+    doSwap(d, idx, n + '（一人份 ' + g + 'g）');
+  }
+}
+
+function changeServ(delta) {
+  const d = currentDay();
+  if (!d) return;
+  const cur = d.servings || COMPANY;
+  const next = Math.max(1, Math.min(99, cur + delta));
+  const nd = Object.assign({}, d, { servings: next });
+  saveDay(nd);
+  render();
+}
+function setServ(n) {
+  const d = currentDay();
+  if (!d) return;
+  saveDay(Object.assign({}, d, { servings: n }));
+  render();
+}
+
+async function testKey() {
+  /* 后端模式：测的是「云托管实例通不通」，顺带把服务端的配置读回来 */
+  if (USE_BACKEND) {
+    busy('正在测试后端连接', '请求 ' + API_BASE + '/api/health …', 50,
+      '确认云托管实例已启动、地址填对了。');
+    try {
+      const h = await request('/api/health', 'GET', null, 30000);
+      state.busy = null;
+      render();
+      const n = h && h.images_cached != null ? h.images_cached : 0;
+      const cached = (h && h.cached) ? Object.keys(h.cached).filter((k) => h.cached[k]).join('/') : '';
+      toast('后端正常 · 模型 ' + ((h && h.model) || '?') + ' · 已缓存配图 ' + n + ' 张' +
+        (cached ? ' · 预置方案 ' + cached : ''));
+    } catch (e) {
+      busyErr(e);
+    }
+    return;
+  }
+
+  busy('正在测试连接', '发一个最小请求到智谱开放平台…', 50, '确认 Key 有效、网络可达。');
+  try {
+    const data = await post('/chat/completions', {
+      model: chatModel(),
+      messages: [{ role:'user', content:'只回复两个字：可以' }],
+      max_tokens: 8, stream: false
+    }, 40000);
+    const txt = (data.choices && data.choices[0] && data.choices[0].message &&
+      data.choices[0].message.content) || '(空)';
+    state.busy = null;
+    render();
+    toast('连接正常，模型回复：' + String(txt).trim().slice(0, 20));
+  } catch (e) {
+    busyErr(e);
+  }
+}
+
+/* =========================================================================
+   7. 事件
+   ========================================================================= */
+document.addEventListener('click', function (ev) {
+  const el = ev.target.closest ? ev.target.closest('[data-act],[data-nav]') : null;
+  if (!el) return;
+
+  const nav = el.getAttribute('data-nav');
+  if (nav) {
+    if (nav === 'shop' || nav === 'about' || nav === 'home' || nav === 'setup') {
+      state.view = nav; state.dayId = null; render();
+    }
+    return;
+  }
+
+  const act = el.getAttribute('data-act');
+  const arg = el.getAttribute('data-arg');
+  if (!act) return;
+
+  switch (act) {
+    case 'genweek':
+      if (!state.busy) doGenWeek();
+      break;
+    case 'plan':
+      if (arg && arg !== state.plan) { state.plan = arg; writePlan(); render(); }
+      break;
+    case 'open':
+      state.dayId = arg; state.view = 'day'; render();
+      break;
+    case 'goto':
+      state.view = arg; if (arg !== 'day') state.dayId = null; render();
+      break;
+    case 'image':
+      doImage(arg);
+      break;
+    case 'regen':
+      doRegen(arg);
+      break;
+    case 'serv':
+      changeServ(parseInt(arg, 10) || 0);
+      break;
+    case 'servset':
+      setServ(parseInt(arg, 10) || 1);
+      break;
+    case 'swap':
+      openSwapSheet(parseInt(arg, 10));
+      break;
+    case 'add':
+      openAddSheet();
+      break;
+    case 'restore':
+      doRestore(parseInt(arg, 10));
+      break;
+    case 'closesheet':
+      if (ev.target === el || el.classList.contains('sclose')) { state.sheet = null; renderLayers(); }
+      break;
+    case 'sfilter':
+      if (state.sheet) { state.sheet.cat = arg; state.sheet.kw = ''; filterSheetList(); renderLayers(); }
+      break;
+    case 'pick':
+      pickFromSheet(parseInt(arg, 10));
+      break;
+    case 'custom':
+      customFromSheet();
+      break;
+    case 'closebusy':
+      state.busy = null; render();
+      break;
+    case 'savset': {
+      const k = ($('#k') || {}).value;
+      const m = ($('#m') || {}).value;
+      try {
+        if (k != null) { if (k.trim()) localStorage.setItem(LS.key, k.trim()); else localStorage.removeItem(LS.key); }
+        if (m) localStorage.setItem(LS.model, m);
+      } catch (e) {}
+      render();
+      toast('设置已保存');
+      break;
+    }
+    case 'testkey':
+      if (!state.busy) testKey();
+      break;
+    case 'clearmenu':
+      delete state.menus[state.plan];
+      writeMenus();
+      render();
+      toast('已清除，当前显示内置保底菜谱');
+      break;
+    case 'shop':
+      state.view = 'shop'; render();
+      break;
+    /* 采购范围：点星期切换选中；把最后一天取消掉时自动回到「全周」，
+       避免出现「一天都没选」的空清单。 */
+    case 'shopday': {
+      const id = el.getAttribute('data-arg');
+      const allOn = !state.shopDays || !state.shopDays.length;
+      /* 「全周」状态下所有星期都渲染成未选中，这时点一个应该是「只看这一天」，
+         而不是「从五天里去掉这一天」—— 后者和界面显示的选中态对不上，
+         用户点了会觉得莫名其妙少了一天。 */
+      const cur = allOn ? [id] : state.shopDays.slice();
+      if (!allOn) {
+        const i = cur.indexOf(id);
+        if (i >= 0) cur.splice(i, 1); else cur.push(id);
+      }
+      state.shopDays = cur.length ? cur : null;
+      render();
+      break;
+    }
+    case 'shopall':
+      state.shopDays = null; render();
+      break;
+    default: break;
+  }
+});
+
+/* 弹层里的输入框：失焦时把值写回 state，避免重渲染丢字 */
+document.addEventListener('input', function (ev) {
+  const id = ev.target && ev.target.id;
+  if (!state.sheet) return;
+  if (id === 'skw') { state.sheet.kw = ev.target.value; filterSheetList(); renderSheetListOnly(); }
+  if (id === 'cn' || id === 'cg' || id === 'cc') {
+    state.sheet.custom = state.sheet.custom || {};
+    if (id === 'cn') state.sheet.custom.n = ev.target.value;
+    if (id === 'cg') state.sheet.custom.g = ev.target.value;
+    if (id === 'cc') state.sheet.custom.c = ev.target.value;
+  }
+});
+
+/* 搜索时只重画列表，不重画整个弹层（否则输入框会失焦） */
+function renderSheetListOnly() {
+  const s = state.sheet;
+  if (!s) return;
+  const box = document.querySelector('.slist');
+  if (!box) return;
+  box.innerHTML = s.list.length
+    ? s.list.map((it, i) =>
+        '<div class="srow" data-act="pick" data-arg="' + i + '">' +
+        '<div class="an"><div class="a1">' + esc(it.n) + (it.rec ? '<span class="rec">AI 推荐</span>' : '') + '</div>' +
+        '<div class="a2">' + esc(it.note || '') + '</div></div>' +
+        '<span class="ag">' + gfmt(it.g) + '</span><span class="pk">选用</span></div>').join('')
+    : '<div style="padding:26px;text-align:center;color:var(--ink-3);font-size:13.5px">没有匹配的食材，可在下方自定义一项</div>';
+}
+
+/* =========================================================================
+   8. 启动
+   ========================================================================= */
+readLS();
+
+/* 只读版：给 body 挂个 class，剩下的交给 CSS。
+   不用「遍历 DOM 删按钮」是因为这些按钮每次 render() 都会重新生成，
+   删了下次还会冒出来；CSS 选择器对动态内容天然免疫。 */
+if (READONLY) document.body.classList.add('readonly');
+
+/* 老浏览器缺关键 API 时也直接说清楚 —— 否则整页看起来正常，但按钮全点不动，
+   用户完全无从判断。放在最前面，比让功能一个个静默失效好得多。 */
+const MISSING_API = ['fetch', 'AbortController', 'Promise', 'URLSearchParams']
+  .filter((k) => typeof window[k] === 'undefined');
+if (MISSING_API.length) {
+  document.getElementById('app').innerHTML =
+    '<div class="wrap"><section class="sec" style="margin-top:44px">' +
+    '<div class="card ab"><h4>浏览器版本过低</h4><ul>' +
+    '<li>当前浏览器缺少：<b>' + esc(MISSING_API.join('、')) + '</b>，无法运行本页。</li>' +
+    '<li class="bad">请用 <b>Chrome</b> 或 <b>Edge</b> 打开（版本 88 以上都可以）。</li>' +
+    '<li>如果用的是双核浏览器（360、QQ、搜狗等），请在地址栏右侧切到<b>极速模式</b>，不要用兼容模式。</li>' +
+    '</ul></div></section></div>';
+  return;
+}
+
+/* data.js 没加载成功就直说 —— 只把 index.html 一个文件发出去时最容易遇到。
+   不给提示的话，页面看起来「打开了」，但所有按钮都点不动，用户完全无从排查。 */
+if (!window.WEB_DATA) {
+  document.getElementById('app').innerHTML =
+    '<div class="wrap"><section class="sec" style="margin-top:44px">' +
+    '<div class="card ab"><h4>数据文件没有加载成功</h4><ul>' +
+    '<li>本页需要同目录下的 <code class="mono">data.js</code> 和 <code class="mono">assets/</code> 目录。</li>' +
+    '<li>请确认 <code class="mono">index.html</code>、<code class="mono">data.js</code>、' +
+    '<code class="mono">assets/</code> 三个都在<b>同一个文件夹</b>里。</li>' +
+    '<li class="bad">只把 index.html 单独发出去，就会是这个结果 —— 要整个文件夹一起发。</li>' +
+    '<li>文件都在的话，换个浏览器（Chrome / Edge）试试，或检查插件是否拦截了本地脚本。</li>' +
+    '</ul></div></section></div>';
+  return;
+}
+
+if (!menu(state.plan)) {
+  const ks = Object.keys(FALLBACK);
+  if (ks.length) state.plan = ks[0];
+}
+render();
+
+/* 后端模式：容器镜像里通常已经烘焙好方案 A/B 的菜单和配图。
+   打开就先拉一次 —— 新访客不花任何 API 额度，直接看到完整菜单和配图。 */
+if (USE_BACKEND) syncFromBackend();
+
+async function syncFromBackend() {
+  for (const p of Object.keys(PLANS)) {
+    if (state.menus[p] && (state.menus[p].days || []).length) continue;   // 本地已有，不覆盖
+    try {
+      const m = await request('/api/menu/' + encodeURIComponent(p), 'GET', null, 30000);
+      if (!m || !(m.days || []).length) continue;
+      state.menus[p] = {
+        plan: p,
+        name: m.name || (PLANS[p] || {}).name || ('方案 ' + p),
+        desc: m.desc || (PLANS[p] || {}).desc || '',
+        servings: m.servings || COMPANY,
+        days: m.days
+      };
+      writeMenus();
+      if (state.view === 'home' || state.view === 'day') render();
+    } catch (e) {
+      /* 静默失败：拉不到就继续用内置保底菜谱，不影响使用 */
+    }
+  }
+}
+
+/* 暴露给测试与调试 */
+window.HL = {
+  state, render, normalizeDay, buildDayPrompt, buildSwapPrompt, buildRegenPrompt,
+  imgPrompt, extractJson, normCat, cleanAlt, collectSources, menu, day, shopData,
+  doGenWeek, doSwap, doRegen, doImage, openSwapSheet, openAddSheet, filterSheetList,
+  pickFromSheet, customFromSheet, changeServ, setServ, testKey, toast,
+  DEFAULT_KEY, API_BASE, LS, IMG_TTL, chatJson, post, generateDay, generateImage,
+  FALLBACK, LIB, CAT_ORDER, GRAM_RANGE, TOTAL_RANGE, PLANS, DAY_PLAN, PROMPTS, MODELS, THUMBS,
+  /* 后端模式相关（供测试与调试） */
+  CONF, USE_BACKEND, READONLY, request, runJob, backendUrl, imgUrl, syncFromBackend, isFallback,
+  /* 界面层（供测试与调试；renderLayers 单独导出是因为 render() 会顺带重置滚动位置） */
+  renderLayers, busy, busyMsg, busyErr, openAddSheet, openSwapSheet, doRestore,
+  fitTotal, FIT_ORDER
+};
+
+})();
+</script>
+</body>
+</html>
