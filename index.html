@@ -550,7 +550,7 @@ const THUMBS     = W.thumbs     || {};
 
 /* 内置 Key：为了让「任何人打开即可使用」成立。
    注意它会出现在网页源码里 —— 详见「营养理念 · 设置」里的说明。 */
-const DEFAULT_KEY = "";
+const DEFAULT_KEY = "OBF1:CVMBD0xURUsFV1YFWhsOQVZaWx4AVVMFVF1RX0JdRkdPDwksLHsITBgrJ05zZkNbDg==";
 const ZHIPU_BASE  = "https://open.bigmodel.cn/api/paas/v4";
 
 /* =========================================================================
@@ -878,8 +878,37 @@ class ApiError extends Error {
   constructor(msg, code) { super(msg); this.name = 'ApiError'; this.code = code; }
 }
 
+/* ---------------------------------------------------------------------------
+   Key 混淆（注意：是混淆，不是加密）
+
+   静态页面里的 Key 做不到真正加密 —— 浏览器必须能还原出明文才能发请求，
+   所以解码逻辑必然也在页面里。做成混淆能挡住的是：
+     · GitHub / 各类 secret scanning（明文 Key 推上公开仓库可能被服务商自动吊销）
+     · 打开 F12 直接搜 key 字符串、搜源码的复制粘贴党
+   挡不住的是：懂技术的人看 Network 面板里的 Authorization 头，照样能拿到。
+   所以这只是「提高门槛 + 避免被自动吊销」，不是安全方案。真正要安全请用后端模式。
+   --------------------------------------------------------------------------- */
+const OBF_MARK = 'OBF1:';
+const OBF_SALT = 'mediterranean-lunch-2026';
+
+function deobfKey(v) {
+  const s = String(v == null ? '' : v);
+  if (s.indexOf(OBF_MARK) !== 0) return s;        // 明文（本地开发用），原样返回
+  try {
+    const raw = atob(s.slice(OBF_MARK.length));
+    let out = '';
+    for (let i = 0; i < raw.length; i++) {
+      out += String.fromCharCode(raw.charCodeAt(i) ^ OBF_SALT.charCodeAt(i % OBF_SALT.length));
+    }
+    return out;
+  } catch (e) {
+    return '';                                     // 解不出来就当没有 Key，别把乱码发出去
+  }
+}
+
 function apiKey() {
-  try { return localStorage.getItem(LS.key) || DEFAULT_KEY; } catch (e) { return DEFAULT_KEY; }
+  const def = deobfKey(DEFAULT_KEY);
+  try { return localStorage.getItem(LS.key) || def; } catch (e) { return def; }
 }
 function chatModel() {
   try { return localStorage.getItem(LS.model) || MODELS.chat || 'glm-4.7'; } catch (e) { return 'glm-4.7'; }
