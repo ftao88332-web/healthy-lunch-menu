@@ -941,6 +941,22 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 /* 统一传输层，两种模式共用：
      direct  → 直连智谱，每个请求带 Authorization
      backend → 调自己的后端，不带 Key（Key 只在服务端） */
+/* ---------------------------------------------------------------------------
+   全局限流闸门
+
+   智谱的 429 是**按账号**限的：同一批并发请求里只要一个撞了限流，其他的多半也会撞。
+   如果各退各的，它们会「同时退避 → 同时重试 → 再同时撞上」，重试几乎必然失败。
+   所以撞到 429 就做**全局冷却**：所有请求一起等，等完再依次发。
+   --------------------------------------------------------------------------- */
+let gateUntil = 0;
+async function gateWait() {
+  const d = gateUntil - Date.now();
+  if (d > 0) await sleep(d);
+}
+function gateCool(ms) {
+  gateUntil = Math.max(gateUntil, Date.now() + ms);
+}
+
 async function request(path, method, body, timeoutMs) {
   const m = (method || 'POST').toUpperCase();
   const hasBody = !(m === 'GET' || m === 'HEAD' || body == null);
@@ -953,6 +969,8 @@ async function request(path, method, body, timeoutMs) {
     if (!key) throw new ApiError('没有可用的 API Key，请到「设置」里填写。', 'nokey');
     headers['Authorization'] = 'Bearer ' + key;
   }
+
+  await gateWait();                  // 撞过限流就先一起等，别贴着打
 
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs || 300000);
@@ -984,7 +1002,10 @@ async function request(path, method, body, timeoutMs) {
     detail = (j.error && (j.error.message || j.error.code)) || j.detail || detail;
   } catch (e) {}
   if (resp.status === 401) throw new ApiError('API Key 无效或已过期（401）：' + detail, 'auth');
-  if (resp.status === 429) throw new ApiError('触发了并发/频率限制（429），稍后会自动重试', 'rate');
+  if (resp.status === 429) {
+    gateCool(3000 + Math.random() * 2000);   // 撞了就整体冷却，避免同批一起再撞
+    throw new ApiError('触发了并发/频率限制（429），稍后会自动重试', 'rate');
+  }
   if (USE_BACKEND && resp.status === 404) {
     throw new ApiError('后端没有这个接口（404）：' + detail +
       '（请确认 BACKEND_BASE 指向的是 后端/ 这个服务，且已重新部署最新代码）', '404');
@@ -1102,7 +1123,7 @@ async function generateDay(meta, plan, avoid, extra) {
    注意它和 cogview 的调用方式完全不同：cogview 是「POST 一下、返回一个带签名的链接」，
    而 Pollinations 是 **URL 本身就是图片** —— 所以这里省掉了整条
    「下载落盘 / 签名 7 天过期 / 定时清理」的链路。 */
-const IMG_MODEL = USE_BACKEND ? (MODELS.image || 'cogview-3-flash') : 'flux';
+const IMG_MODEL = USE_BACKEND ? (MODELS.image || 'cogview-3-flash') : 'z-image-turbo';
 const IMG_API = 'https://image.pollinations.ai/prompt/';
 
 /* 同一道菜必须稳定出同一张图，否则每次刷新都换一张脸。
@@ -1149,6 +1170,83 @@ async function generateImage(day) {
   const url = imgUrlFor(day);
   await preloadImage(url);
   return url;
+}
+
+/* ---------------------------------------------------------------------------
+   图片串行队列
+
+   Pollinations 的并发限制比想象中严：实测**并发 4 个请求有 3 个直接 429**，
+   只有串行（一次一个）才稳。所以图片不能交给浏览器并发去拉 ——
+   渲染时把 AI 图地址放在 data-src 上，渲染完统一入队、**一张一张地加载**。
+
+   体验上：src 先放本地占位图（秒开、不依赖网络），AI 图加载好后再无缝替换过去；
+   加载失败就保持占位图，不会出现破图。
+   --------------------------------------------------------------------------- */
+const imgQueue = [];
+let imgPumping = false;
+const IMG_TRIES = 3;
+
+function queueImages() {
+  /* 每次 render 都会重建 DOM，之前排队的元素已经不在页面上了 —— 直接清掉。
+     否则队列会越积越长（每次渲染都要白等一堆已作废的任务），
+     而且 imgPumping 迟迟不释放，新图根本轮不上。 */
+  imgQueue.length = 0;
+  const list = document.querySelectorAll('img[data-src]:not([data-queued])');
+  for (let i = 0; i < list.length; i++) {
+    const el = list[i];
+    el.setAttribute('data-queued', '1');
+    imgQueue.push({ el: el, url: el.getAttribute('data-src') });
+  }
+  pumpImages();
+}
+
+async function pumpImages() {
+  if (imgPumping) return;
+  imgPumping = true;
+  while (imgQueue.length) {
+    await loadOneImage(imgQueue.shift());
+    await sleep(250);                 // 张与张之间留个间隔，别贴着打
+  }
+  imgPumping = false;
+}
+
+/* 串行性的自检计数：同一时刻在跑的 loadOneImage 数量，峰值应当恒为 1。
+   放在页面代码里而不是测试桩里 —— 测试桩的回调会跨渲染互相干扰，数不准。 */
+let imgLoading = 0;
+let imgMaxLoading = 0;
+
+function loadOneImage(job) {
+  return new Promise((resolve) => {
+    /* 元素已经被下一次渲染换掉、或者地址是空的 —— 直接跳过，
+       否则会占着队列白等 120 秒超时。 */
+    if (!job.el.isConnected || !job.url) return resolve();
+    let tries = 0;
+    imgLoading++;
+    if (imgLoading > imgMaxLoading) imgMaxLoading = imgLoading;
+    const attempt = () => {
+      const im = new Image();
+      let done = false;
+      const finish = (ok) => {
+        if (done) return;
+        done = true;
+        imgLoading--;
+        /* 成功就换成 AI 图；失败保持本地占位图，绝不出现破图 */
+        if (ok && job.el.isConnected) job.el.src = job.url;
+        resolve();
+      };
+      const timer = setTimeout(() => { im.src = ''; finish(false); }, 120000);
+      im.onload = () => { clearTimeout(timer); finish(true); };
+      im.onerror = () => {
+        clearTimeout(timer);
+        if (done) return;
+        tries++;
+        if (tries < IMG_TRIES) setTimeout(attempt, 1500 * tries);   // 退避后重试
+        else finish(false);
+      };
+      im.src = job.url;
+    };
+    attempt();
+  });
 }
 
 /* 配图提示词：**必须用英文**。
@@ -1361,8 +1459,8 @@ function renderHome() {
   html += '</div>';
 
   html += '<div class="heroart"><div class="frame">';
-  if (hiImg) html += '<img src="' + esc(hiImg) + '" alt="' + esc(hi ? hi.title : '') +
-    '" data-fb="' + esc(hi ? thumbUrl(hi) : '') + '">';
+  if (hiImg) html += '<img src="' + esc(hi ? thumbUrl(hi) : '') + '" data-src="' + esc(hiImg) +
+    '" alt="' + esc(hi ? hi.title : '') + '">';
   else html += phHTML(hi ? hi.type : 'veg');
   html += '</div>';
   if (hi) html += '<div class="bubble">' + esc(hi.title) +
@@ -1430,7 +1528,7 @@ function dayCard(d, i) {
   const isToday = i === todayIdx();
   return '<button class="day" data-act="open" data-arg="' + d.id + '">' +
     '<div class="thumb">' +
-      (src ? '<img src="' + esc(src) + '" alt="" loading="lazy" data-fb="' + esc(thumbUrl(d)) + '">' : phHTML(d.type, 56)) +
+      (src ? '<img src="' + esc(thumbUrl(d)) + '" data-src="' + esc(src) + '" alt="" loading="lazy">' : phHTML(d.type, 56)) +
       '<span class="tag">' + esc(d.tn) + '</span>' +
       (isToday ? '<span class="today">今天</span>' : '') +
     '</div>' +
@@ -1470,7 +1568,7 @@ function renderDay() {
 
   /* 左：图 + 营养 */
   html += '<div>';
-  html += '<div class="dhero">' + (src ? '<img src="' + esc(src) + '" alt="' + esc(d.title) + '" data-fb="' + esc(thumbUrl(d)) + '">' : phHTML(d.type, 92)) +
+  html += '<div class="dhero">' + (src ? '<img src="' + esc(thumbUrl(d)) + '" data-src="' + esc(src) + '" alt="' + esc(d.title) + '">' : phHTML(d.type, 92)) +
     '<span class="badge">' + esc(d.tn) + '</span>' +
     (aiImg ? '<span class="ai">AI 生成配图</span>' : '') + '</div>';
   /* 直连模式下配图随菜单自动出来，所以这里不再是「生成」而是「换一张」 */
@@ -1911,6 +2009,7 @@ function render() {
   else if (state.view === 'setup') renderSetup();
   else renderAbout();
   renderLayers();
+  queueImages();                    // 新渲染出来的配图入队，一张一张加载
   /* 只有「换页」才回到顶部。切换方案、调就餐人数、改采购范围都是在同一页里
      重渲染，无条件 scrollTo(0,0) 会让用户瞬间丢失当前位置 ——
      手机上尤其难受：刚滑到下面点一下，直接被弹回顶端。 */
@@ -2538,17 +2637,6 @@ document.addEventListener('click', function (ev) {
   }
 });
 
-/* 配图加载失败（上游限流 / 断网）时回落到本地占位图，别让用户看到破图。
-   注意 <img> 的 error 事件**不冒泡**，所以必须用捕获阶段监听。 */
-document.addEventListener('error', function (ev) {
-  const el = ev.target;
-  if (!el || el.tagName !== 'IMG') return;
-  const fb = el.getAttribute('data-fb');
-  if (!fb) return;
-  el.removeAttribute('data-fb');       // 只回退一次，避免回退图也失败时反复触发
-  el.src = fb;
-}, true);
-
 /* 弹层里的输入框：失焦时把值写回 state，避免重渲染丢字 */
 document.addEventListener('input', function (ev) {
   const id = ev.target && ev.target.id;
@@ -2656,6 +2744,11 @@ window.HL = {
   pickFromSheet, customFromSheet, changeServ, setServ, testKey, toast,
   DEFAULT_KEY, API_BASE, LS, IMG_TTL, chatJson, post, generateDay, generateImage,
   IMG_MODEL, IMG_API, imgUrlFor, imgSeed, preloadImage, shopServings,
+  /* 图片串行队列的自检（供测试验证「一次只加载一张」） */
+  imgQueueState: () => ({ pending: imgQueue.length, pumping: imgPumping, max: imgMaxLoading }),
+  /* 全局限流闸门的自检（供测试验证「429 后整体冷却」） */
+  gateState: () => gateUntil,
+  resetGate: () => { gateUntil = 0; },
   FALLBACK, LIB, CAT_ORDER, GRAM_RANGE, TOTAL_RANGE, PLANS, DAY_PLAN, PROMPTS, MODELS, THUMBS,
   /* 后端模式相关（供测试与调试） */
   CONF, USE_BACKEND, READONLY, request, runJob, backendUrl, imgUrl, syncFromBackend, isFallback,
