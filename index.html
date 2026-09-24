@@ -1108,6 +1108,9 @@ const IMG_API = 'https://image.pollinations.ai/prompt/';
 /* 同一道菜必须稳定出同一张图，否则每次刷新都换一张脸。
    所以 seed 由菜名 + 做法派生（FNV-1a），不用随机数。 */
 function imgSeed(day) {
+  /* 用户点过「换一张配图」就用他换的种子，否则由菜名 + 做法派生 */
+  const ov = state.imgSeeds && state.imgSeeds[day.id];
+  if (ov) return ov;
   const s = (day.title || '') + '|' + (day.method || '');
   let h = 2166136261;
   for (let i = 0; i < s.length; i++) {
@@ -1226,7 +1229,8 @@ const state = {
   plan: 'A',
   dayId: null,
   menus: {},        // plan -> {plan,name,desc,servings,days:[...]}
-  imgs: {},         // `${plan}:${dayId}` -> {url, ts}
+  imgs: {},         // 仅后端模式：`${plan}:${dayId}` -> {url, ts}（签名链接要判过期）
+  imgSeeds: {},     // 仅直连模式：dayId -> seed（点「换一张配图」时写入，覆盖默认 seed）
   sheet: null,      // {mode, dayId, idx, cat, kw, list}
   busy: null,       // {title, msg, pct, err, note}
   toast: null,
@@ -1262,16 +1266,17 @@ function day(plan, id) {
 function isFallback(plan) { return !state.menus[plan || state.plan] && !!FALLBACK[plan || state.plan]; }
 
 function imgUrl(plan, dayId) {
-  const rec = state.imgs[plan + ':' + dayId];
-  /* 直连模式的图片地址是确定性推导出来的，**永不过期**，不必判 TTL；
-     只有后端模式那种带签名的链接才需要（签名约 7 天失效）。 */
-  if (rec && rec.url && (!USE_BACKEND || Date.now() - rec.ts < IMG_TTL)) return rec.url;
+  const d = day(plan, dayId);
+  /* 直连模式：图片地址由「菜名 + 做法」确定性推导 ——
+     也就是说**生成菜单的那一刻，配图就已经确定了**，不需要用户再点一次
+     「生成配图」，也不需要缓存。seed 由菜名派生，同一道菜永远同一张图；
+     点过「换一张配图」就用他换的种子。 */
+  if (!USE_BACKEND) return d ? imgUrlFor(d) : '';
   /* 后端模式：菜单里自带 img_key，配图已随镜像烘焙在容器里，
      直接拼地址即可 —— 不走签名、不会过期、也不花钱。 */
-  if (USE_BACKEND) {
-    const d = day(plan, dayId);
-    if (d && d.img_key) return backendUrl('/api/image/' + d.img_key + '.png');
-  }
+  const rec = state.imgs[plan + ':' + dayId];
+  if (rec && rec.url && Date.now() - rec.ts < IMG_TTL) return rec.url;
+  if (d && d.img_key) return backendUrl('/api/image/' + d.img_key + '.png');
   return '';
 }
 function thumbUrl(dayObj) {
@@ -1356,7 +1361,8 @@ function renderHome() {
   html += '</div>';
 
   html += '<div class="heroart"><div class="frame">';
-  if (hiImg) html += '<img src="' + esc(hiImg) + '" alt="' + esc(hi ? hi.title : '') + '">';
+  if (hiImg) html += '<img src="' + esc(hiImg) + '" alt="' + esc(hi ? hi.title : '') +
+    '" data-fb="' + esc(hi ? thumbUrl(hi) : '') + '">';
   else html += phHTML(hi ? hi.type : 'veg');
   html += '</div>';
   if (hi) html += '<div class="bubble">' + esc(hi.title) +
@@ -1424,7 +1430,7 @@ function dayCard(d, i) {
   const isToday = i === todayIdx();
   return '<button class="day" data-act="open" data-arg="' + d.id + '">' +
     '<div class="thumb">' +
-      (src ? '<img src="' + esc(src) + '" alt="" loading="lazy">' : phHTML(d.type, 56)) +
+      (src ? '<img src="' + esc(src) + '" alt="" loading="lazy" data-fb="' + esc(thumbUrl(d)) + '">' : phHTML(d.type, 56)) +
       '<span class="tag">' + esc(d.tn) + '</span>' +
       (isToday ? '<span class="today">今天</span>' : '') +
     '</div>' +
@@ -1464,13 +1470,14 @@ function renderDay() {
 
   /* 左：图 + 营养 */
   html += '<div>';
-  html += '<div class="dhero">' + (src ? '<img src="' + esc(src) + '" alt="' + esc(d.title) + '">' : phHTML(d.type, 92)) +
+  html += '<div class="dhero">' + (src ? '<img src="' + esc(src) + '" alt="' + esc(d.title) + '" data-fb="' + esc(thumbUrl(d)) + '">' : phHTML(d.type, 92)) +
     '<span class="badge">' + esc(d.tn) + '</span>' +
     (aiImg ? '<span class="ai">AI 生成配图</span>' : '') + '</div>';
+  /* 直连模式下配图随菜单自动出来，所以这里不再是「生成」而是「换一张」 */
   html += '<div class="acts">' +
-    '<button class="btn' + (aiImg ? ' ghost' : '') + ' sm" data-act="image" data-arg="' + d.id + '"' +
+    '<button class="btn ghost sm" data-act="image" data-arg="' + d.id + '"' +
     (state.busy ? ' disabled' : '') + '>' +
-    (aiImg ? '重新生成配图' : '生成这道菜的配图') + '</button>' +
+    (USE_BACKEND ? (aiImg ? '重新生成配图' : '生成这道菜的配图') : '换一张配图') + '</button>' +
     '</div>';
   html += '<div class="secttl"><h3>本餐份数换算</h3></div>';
   html += '<div class="card serve">' +
@@ -1816,7 +1823,8 @@ function renderSetup() {
       : '<li>主厨模型：<b>' + esc(model) + '</b></li>' +
         '<li>Key 来源：<b>' + (own ? '你自己填的' : '内置默认') + '</b></li>') +
     '<li>菜单来源：<b>' + (isFallback(state.plan) ? '内置保底菜谱' : 'AI 已生成（保存在本地）') + '</b></li>' +
-    '<li>已缓存配图：<b>' + Object.keys(state.imgs).length + ' 张</b></li>' +
+    '<li>配图：<b>' + (USE_BACKEND ? Object.keys(state.imgs).length + ' 张已缓存'
+      : '随菜单自动生成（不用手动点）') + '</b></li>' +
     '<li>接口地址：<span style="font-size:12px;color:var(--ink-3)">' + esc(API_BASE) + '</span></li>' +
     '</ul></div>';
 
@@ -2205,31 +2213,39 @@ async function regenViaBackend(d, id) {
 async function doImage(id) {
   const d = day(state.plan, id);
   if (!d || state.busy) return;
-  busy('正在生成配图', '按这道菜的食材与做法生成图片，约需 5–15 秒…', 40,
-    '使用免费图像模型 ' + IMG_MODEL +
-    (USE_BACKEND ? '，不额外计费。' : '，不需要 API Key、不额外计费。'));
-  try {
-    if (USE_BACKEND) {
-      const res = await runJob('/api/image/one',
-        { plan: state.plan, day_id: id, force: true },
-        (j) => { busyMsg(j.message || 'AI 正在按菜名与食材作画…', 60); });
-      const raw = (res && (res.url || (res.img_key ? '/api/image/' + res.img_key + '.png' : ''))) || '';
-      const url = backendUrl(raw);
-      if (!url) throw new ApiError('后端没有返回图片地址。');
-      state.imgs[state.plan + ':' + id] = { url, ts: Date.now() };
-      writeImgs();
+
+  /* 直连模式：配图随菜单自动就有了，这个按钮是「换一张」——
+     换个随机种子即可得到另一张图（地址本来就是推导出来的，不用真的「生成」）。 */
+  if (!USE_BACKEND) {
+    busy('正在换一张配图', '换个随机种子重新出图，约需 5–20 秒…', 40,
+      '使用免费图像模型 ' + IMG_MODEL + '，不需要 API Key。');
+    try {
+      state.imgSeeds[d.id] = Math.floor(Math.random() * 1000000);
+      await preloadImage(imgUrlFor(d));
       state.busy = null;
       render();
-      toast(res && res.cached ? '已命中缓存，直接显示' : '配图已生成');
-      return;
+      toast('已换一张配图');
+    } catch (e) {
+      delete state.imgSeeds[d.id];        // 换失败了就退回原来那张，别留个破图
+      busyErr(e);
     }
+    return;
+  }
 
-    const url = await generateImage(d);
+  busy('正在生成配图', '按这道菜的食材与做法生成图片，约需 8–10 秒…', 40,
+    '使用免费图像模型 ' + IMG_MODEL + '，不额外计费。');
+  try {
+    const res = await runJob('/api/image/one',
+      { plan: state.plan, day_id: id, force: true },
+      (j) => { busyMsg(j.message || 'AI 正在按菜名与食材作画…', 60); });
+    const raw = (res && (res.url || (res.img_key ? '/api/image/' + res.img_key + '.png' : ''))) || '';
+    const url = backendUrl(raw);
+    if (!url) throw new ApiError('后端没有返回图片地址。');
     state.imgs[state.plan + ':' + id] = { url, ts: Date.now() };
     writeImgs();
     state.busy = null;
     render();
-    toast('配图已生成');
+    toast(res && res.cached ? '已命中缓存，直接显示' : '配图已生成');
   } catch (e) {
     busyErr(e);
   }
@@ -2521,6 +2537,17 @@ document.addEventListener('click', function (ev) {
     default: break;
   }
 });
+
+/* 配图加载失败（上游限流 / 断网）时回落到本地占位图，别让用户看到破图。
+   注意 <img> 的 error 事件**不冒泡**，所以必须用捕获阶段监听。 */
+document.addEventListener('error', function (ev) {
+  const el = ev.target;
+  if (!el || el.tagName !== 'IMG') return;
+  const fb = el.getAttribute('data-fb');
+  if (!fb) return;
+  el.removeAttribute('data-fb');       // 只回退一次，避免回退图也失败时反复触发
+  el.src = fb;
+}, true);
 
 /* 弹层里的输入框：失焦时把值写回 state，避免重渲染丢字 */
 document.addEventListener('input', function (ev) {
