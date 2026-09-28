@@ -914,8 +914,14 @@ function apiKey() {
   const def = deobfKey(DEFAULT_KEY);
   try { return localStorage.getItem(LS.key) || def; } catch (e) { return def; }
 }
+/* 默认主厨模型：glm-4.5-air。
+   实测（2026-09-28）它比 glm-4.7 快 3 倍（20.5s vs 60.2s）、并发 ≥8（4.7 只有 2），
+   而且一人份总重 662g、蔬菜 280g 都达标（glm-4.7 反而 525g/240g 都不达标）。
+   用户在「设置」里改过就以他的为准（存 localStorage，优先级最高）。 */
+const CHAT_MODEL_DEFAULT = 'glm-4.5-air';
 function chatModel() {
-  try { return localStorage.getItem(LS.model) || MODELS.chat || 'glm-4.7'; } catch (e) { return 'glm-4.7'; }
+  try { return localStorage.getItem(LS.model) || MODELS.chat || CHAT_MODEL_DEFAULT; }
+  catch (e) { return MODELS.chat || CHAT_MODEL_DEFAULT; }
 }
 
 function extractJson(text) {
@@ -2060,11 +2066,15 @@ async function doGenWeek() {
   if (USE_BACKEND) return genWeekViaBackend(plan, total);
 
   const days = [];
-  /* ⚠️ 实测：智谱对单个账号的并发上限就是 **2** —— 同时发 3 个请求时，
-     第 3 个必定被 429（错误码 1302「您的账户已达到速率限制」）。
-     所以这里不要为了提速调高：调高只会让 1/3 的请求撞限流、退避重试，
-     总耗时反而比 2 天一批更长。后端模式不走这里（上面已 return）。 */
-  const batch = 2;
+  /* 并发上限**取决于模型**，不是账号级的（实测 2026-09-28）：
+       glm-4.7        → 只有 2（发 3 个，第 3 个必 429 错误码 1302）
+       glm-4.7-flash  → 很严（5 并发 5 个 429）
+       glm-4.5-air    → ≥8（8 并发全部成功）
+       glm-4-flash / glm-4-air → 也宽松
+     所以这里**按当前模型自动决定批次**：宽松的模型 5 天一次全并行，
+     受限的模型回到 2 天一批 —— 换模型时不用再手动改这里。
+     注意后端模式不走这段（上面已 return）。 */
+  const batch = /glm-4\.5-air|glm-4-flash|glm-4-air/.test(chatModel()) ? 5 : 2;
   try {
     for (let i = 0; i < total; i += batch) {
       const slice = DAY_PLAN.slice(i, i + batch);
@@ -2201,22 +2211,27 @@ async function doSwap(dayObj, idx, want) {
       if (n <= 0 || n < TOL[k][0] * o || n > TOL[k][1] * o) { ok = -1; break; }
       ok++;
     }
+    /* 换食材的理由**每次都要重写**：updated 是从原 day 复制来的，
+       这次不覆盖的话，界面上会显示上一道菜留下的旧理由（实测踩过）。 */
+    const reason = String(data.reason || '').trim();
     if (ok >= 2) {
       ['kcal','p','c','f','fb'].forEach((k) => {
         if (mac[k] != null) updated[k] = (k === 'kcal') ? Math.round(num(mac[k])) : r1(num(mac[k]));
       });
+      if (reason) updated.swap_note = reason + '（营养按模型给的合计值）';
+      else delete updated.swap_note;
     } else {
       const ratio = newTotal / oldTotal;
       ['kcal','p','c','f','fb'].forEach((k) => {
         const base = num(dayObj[k]);
         updated[k] = (k === 'kcal') ? Math.round(base * ratio) : r1(base * ratio);
       });
-      updated.swap_note = (String(data.reason || '').trim() + '（营养已按食材总重比例重算）').trim();
+      if (reason) updated.swap_note = reason + '（营养已按食材总重比例重算）';
+      else delete updated.swap_note;
     }
 
     const srcs = collectSources({}, r.sources);
     if (srcs.length) updated.sources = srcs;
-    if (!updated.swap_note) updated.swap_note = String(data.reason || '').trim();
 
     /* 菜变了，原来的配图就对不上了 —— 清掉，下次重新生成 */
     delete state.imgs[state.plan + ':' + dayObj.id];
