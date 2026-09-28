@@ -1469,14 +1469,16 @@ function imgPrompt(day) {
    - Unsplash / Pexels 都要 API Key，配额与「公开分享、零配置可用」冲突。
 
    ⚠️ TheMealDB 只认**英文**（中文关键词一律返回 null），查询词必须走 IMG_EN 翻译。
-   ⚠️ 照片是「同食材的相近菜品」，**不是这道菜的实拍** —— 界面上必须标注来源，
+   ⚠️ 匹配必须**同时看食材和做法**：只按食材匹配时，「烤青花鱼」会配上一张葡式炖鱼、
+      「烤猪里脊」会配到 BBQ 猪排 —— 用户明确反馈过这个问题。见下面 scoreRealMatch()。
+   ⚠️ 照片是「同做法的相近菜品」，**不是这道菜的实拍** —— 界面上必须标注来源，
       不要为了好看写成「本菜实拍」，这是诚信问题。
    ========================================================================= */
 const MEAL_API = 'https://www.themealdb.com/api/json/v1/1/';
 const MEAL_SITE = 'https://www.themealdb.com/meal/';
 
 /* 荤菜大类 → TheMealDB 的食材词。注意 `fish` 在库里**查不到**（返回 null），
-   必须落到具体的鱼名；实测 mackerel=1 / cod=2 / haddock=1 / white fish=3 / tuna=3。 */
+   必须落到具体的鱼名；实测 mackerel=1 / cod=2 / haddock=1 / white fish=3 / tuna=3 / sardine=0。 */
 const MEAL_PROTEIN = {
   fish:    ['mackerel', 'cod', 'haddock', 'tuna', 'white fish'],
   shrimp:  ['prawns', 'shrimp'],
@@ -1484,17 +1486,82 @@ const MEAL_PROTEIN = {
   beef:    ['beef'],
   pork:    ['pork']
 };
-/* 地中海/南欧优先：气质更接近本项目（少油烟、橄榄油、柠檬、香草）。
-   实测不排序时「mackerel」第一条是印度 masala 鱼，排完变成希腊/意大利菜。 */
-const MEAL_MED = ['greek', 'italian', 'spanish', 'moroccan', 'turkish', 'french',
-                  'portuguese', 'croatian', 'lebanese', 'egyptian', 'tunisian', 'syrian'];
-/* 每个查询词最多取几条、总共最多取几条。
-   单个词不设上限的话，「鱼」的兜底词会把名额吃光，主食和蔬菜永远轮不到。 */
-const MEAL_PER_QUERY = 2;
-const MEAL_MAX = 8;
+
+/* ---------------------------------------------------------------------------
+   做法匹配（2026-09-28）
+
+   用户的原话：「图片应该和这个做法相同」「直接搜鱼做法出来太多结果了，
+   很多都不是我想要的做法」—— 所以光按食材匹配是不够的。
+   实测只按食材 + 菜系排序时，「烤青花鱼」配到一张葡式炖鱼、「烤猪里脊」配到
+   「BBQ Pork Sloppy Joes」。下面这套规则先在本地把候选**按做法筛一遍**，
+   筛不出及格的宁可退回 AI 图，也不放一张做法不对的。
+   --------------------------------------------------------------------------- */
+
+/* method 的第一段 → 烹饪方式。菜谱的 method 形如「烤 · 煮 · 凉拌」，取第一段作主做法。 */
+const TECH_ORDER = [['凉拌', 'salad'], ['焯水', 'blanch'], ['白灼', 'poach'], ['蒸', 'steam'],
+                    ['炖煮', 'stew'], ['炖', 'stew'], ['煮', 'boil'], ['烤', 'roast'], ['拌', 'salad']];
+/* 每类做法在英文菜名里可能出现的词 */
+const TECH_WORDS = {
+  roast:  ['roast', 'roasted', 'baked', 'bake', 'grilled', 'grill', 'traybake', 'charred', 'oven'],
+  steam:  ['steam', 'steamed', 'poach', 'poached', 'boiled', 'boil'],
+  boil:   ['boil', 'boiled', 'poached', 'poach', 'blanched', 'steam', 'steamed', 'simmered', 'simmer', 'salad', 'tossed'],
+  poach:  ['poach', 'poached', 'boiled', 'boil', 'blanched', 'steam', 'steamed', 'salad', 'tossed'],
+  blanch: ['blanch', 'blanched', 'boiled', 'boil', 'steam', 'steamed', 'salad', 'tossed'],
+  stew:   ['stew', 'stewed', 'casserole', 'braised', 'braise', 'tagine', 'curry', 'hotpot',
+           'simmered', 'simmer', 'soup', 'broth', 'cassoulet', 'goulash', 'ragout', 'daube',
+           'stifado', 'cocido', 'chili', 'chilli'],
+  salad:  ['salad', 'slaw', 'tossed', 'raw', 'marinated']
+};
+/* 做法的中文标签（界面文案用） */
+const TECH_CN = { roast: '烤箱烘烤', steam: '蒸制', boil: '水煮', poach: '白灼', blanch: '焯水',
+                  stew: '炖煮', salad: '凉拌', any: '零油烟' };
+/* 零油烟否决词：命中即淘汰。本项目只做烤箱/蒸/煮/白灼/焯水/炖煮/凉拌，
+   所以煎炸、烧烤、甜点、面包、意面/饭类一律不要。 */
+const MEAL_REJECT = ['fried', 'fry', 'deep fried', 'deep-fried', 'tempura', 'katsu', 'karaage',
+  'fritter', 'fritters', 'croquette', 'schnitzel', 'nugget', 'nuggets', 'bbq', 'barbecue',
+  'sloppy', 'burger', 'pizza', 'pasty', 'samosa', 'pakora', 'bhaji', 'chips', 'hot dog',
+  'spring roll', 'toastie', 'nachos', 'quesadilla', 'meatloaf', 'wings', 'cake', 'pudding',
+  'brownie', 'cookie', 'biscuit', 'tart', 'dessert', 'pancake', 'waffle', 'doughnut', 'muffin',
+  'bread', 'pie', 'risotto', 'paella', 'pasta', 'noodle', 'lasagne', 'lasagna', 'macaroni',
+  'spaghetti', 'cannelloni', 'gnocchi'];
+/* 汤水/焖饭类：与「烤 / 蒸 / 白灼 / 凉拌」互斥（实测不判就会把烤青花鱼配成葡式炖鱼） */
+const MEAL_WET = ['stew', 'stewed', 'casserole', 'hotpot', 'soup', 'broth', 'curry', 'braised',
+  'braise', 'tagine', 'pilaf', 'rice', 'biryani', 'dumpling', 'dumplings', 'congee', 'porridge'];
+/* 干烤类：与「炖煮」互斥 */
+const MEAL_DRY = ['roast', 'roasted', 'grilled', 'grill', 'baked', 'bake', 'charred', 'traybake',
+  'toasted', 'toast', 'fried', 'fry'];
+/* 荤菜证据词：菜名里必须至少命中一个，否则这张图压根不是这道菜的荤菜 */
+const MEAL_MEAT = {
+  fish:    ['fish', 'mackerel', 'cod', 'haddock', 'tuna', 'sardine', 'sardines', 'anchovy',
+            'anchovies', 'bream', 'sea bass', 'seabass', 'trout', 'halibut', 'squid', 'octopus',
+            'seafood', 'salmon', 'herring', 'pollock', 'plaice', 'monkfish', 'snapper', 'tilapia',
+            'swordfish', 'catfish', 'carp'],
+  shrimp:  ['prawn', 'prawns', 'shrimp', 'shrimps', 'langoustine', 'scampi', 'crayfish', 'seafood'],
+  chicken: ['chicken', 'turkey', 'poultry'],
+  beef:    ['beef', 'steak', 'veal', 'brisket', 'shank', 'oxtail', 'mince', 'minced'],
+  pork:    ['pork', 'ham', 'bacon', 'gammon', 'chorizo', 'sausage', 'prosciutto', 'pancetta',
+            'carnitas', 'lardon', 'lardons', 'speck']
+};
+/* 风味词：菜名里出现、且也出现在这道菜自己的菜名/食材里，才算「风味也对得上」 */
+const MEAL_FLAVOR = ['lemon', 'rosemary', 'oregano', 'thyme', 'basil', 'parsley', 'fennel', 'dill',
+  'mint', 'coriander', 'garlic', 'tomato', 'olive', 'herb', 'herbs', 'pepper', 'paprika', 'cumin',
+  'cinnamon', 'saffron', 'yogurt', 'yoghurt', 'honey', 'mustard', 'dijon', 'sherry', 'wine',
+  'chilli', 'chili', 'ginger', 'sesame', 'coconut', 'lime', 'orange', 'bay', 'sage', 'tarragon',
+  'caper', 'vinegar', 'tahini', 'harissa'];
+/* 地中海/南欧优先：气质更接近本项目（少油烟、橄榄油、柠檬、香草） */
+const MEAL_MED = ['greek', 'italian', 'spanish', 'moroccan', 'turkish', 'french', 'portuguese',
+  'croatian', 'lebanese', 'egyptian', 'tunisian', 'syrian', 'algerian', 'israeli', 'jordanian',
+  'libyan', 'cypriot', 'maltese', 'albanian', 'slovenian', 'montenegrin'];
+const MEAL_MED_C = ['greece', 'italy', 'spain', 'morocco', 'turkey', 'france', 'portugal',
+  'croatia', 'lebanon', 'egypt', 'tunisia', 'syria', 'cyprus', 'malta', 'algeria', 'israel',
+  'jordan', 'libya', 'albania', 'slovenia', 'montenegro'];
 /* 一天最多试几个查询词。食材词里有不少 TheMealDB 根本没收录（实测 wheat / pasta /
    beef shank / sardine 都是 null），不设上限的话一天能发十几次请求，太浪费。 */
 const MEAL_MAX_Q = 6;
+/* 最多保留几张候选图 */
+const MEAL_MAX = 8;
+/* 及格线：低于这个分数宁可不放图（退回 AI 图），也不放一张做法不对的 */
+const MEAL_MIN_SCORE = 5;
 /* 翻译后剩下的修饰词/做法词，拿去 TheMealDB 当食材查是查不到的（会捞回不相关的东西）。
    例：三色藜麦 → "tricolor quinoa"，整串查不到，拆开后 tricolor 也得滤掉。 */
 const MEAL_STOP = ['tricolor', 'colorful', 'extra', 'virgin', 'skinless', 'mixed', 'whole',
@@ -1524,49 +1591,99 @@ function realQueries(day) {
   return out;
 }
 
-/* 查一次 TheMealDB：按食材筛出候选，再按「地中海优先 + 菜名含查询词」重排。
-   返回 {q, list[], i}；list 为空表示这些食材都没收录，界面自动退回 AI 图。 */
+/* 这道菜的主做法（method 的第一段）映射到 TECH_WORDS 的 key */
+function dayTechnique(day) {
+  const first = String((day && day.method) || '').split(/[·・]/)[0].trim();
+  for (let i = 0; i < TECH_ORDER.length; i++) {
+    if (first.indexOf(TECH_ORDER[i][0]) !== -1) return TECH_ORDER[i][1];
+  }
+  return 'any';
+}
+
+/* 这道菜「自己的」风味串（菜名 + 全部食材翻译后的小写串）。
+   只有出现在这里的风味词才算「对得上」，避免被通用的 pepper / olive 抬分。
+   结果按「id|菜名」缓存 —— 不要往 day 对象上挂字段，那会被 writeMenus() 一起存进本地。 */
+const flavCache = new Map();
+function dayFlavorText(day) {
+  const key = ((day && day.id) || '') + '|' + ((day && day.title) || '');
+  let s = flavCache.get(key);
+  if (s === undefined) {
+    let txt = trEn((day && day.title) || '');
+    ((day && day.ing) || []).forEach((i) => { txt += ' ' + trEn(i.n || ''); });
+    s = ' ' + txt.toLowerCase().replace(/\s+/g, ' ') + ' ';
+    flavCache.set(key, s);
+  }
+  return s;
+}
+
+/* 这道菜的荤菜名，给界面文案与搜索词用：
+   去掉括号补充，再去掉「冷冻 / 去皮 / 净肉」这类采购修饰 ——
+   「白灼 冷冻南美白虾仁 做法」不如「白灼 南美白虾仁 做法」搜得准。 */
+const MEAT_TRIM = /(冷冻|冰鲜|新鲜|鲜活|去皮|去骨|去壳|去刺|无刺|净肉|生重|熟重|整只|切片|切块|带皮|现杀)/g;
+function proteinName(day) {
+  const p = ((day && day.ing) || []).filter((i) => i.c === 'protein')[0];
+  if (!p) return String((day && day.tn) || '荤菜');
+  return String(p.n).replace(/[（(][^）)]*[）)]/g, '').replace(MEAT_TRIM, '').trim();
+}
+
+/* 给一张候选照片打分：<0 = 硬否决（煎炸 / 荤菜不对）；>= MEAL_MIN_SCORE 才采用。
+   分值构成：基础 1 + 做法命中 4 + 风味命中 2×n(≤2) + 地中海 2 − 做法互斥 6/4 */
+function scoreRealMatch(name, area, country, day) {
+  const nm = ' ' + String(name || '').toLowerCase().replace(/[^a-z ]/g, ' ').replace(/\s+/g, ' ') + ' ';
+  const has = (arr) => arr.some((w) => nm.indexOf(w) !== -1);
+  if (has(MEAL_REJECT)) return -1;                       // ① 零油烟否决
+  const meat = MEAL_MEAT[day && day.img] || [];
+  if (meat.length && !has(meat)) return -1;              // ② 荤菜必须对得上
+  const tech = dayTechnique(day);
+  const flav = dayFlavorText(day);
+  let s = 1;
+  s += 2 * Math.min(MEAL_FLAVOR.filter((w) => nm.indexOf(w) !== -1 && flav.indexOf(w) !== -1).length, 2);
+  const tw = TECH_WORDS[tech];
+  let techHit;
+  if (tech === 'any') {
+    techHit = has(Object.keys(TECH_WORDS).reduce((a, k) => a.concat(TECH_WORDS[k]), []));
+  } else {
+    techHit = !!tw && has(tw);
+  }
+  if (techHit) s += 4;                                   // ③ 做法对上了
+  if (tech !== 'stew' && tech !== 'any' && has(MEAL_WET)) s -= 6;              // ④ 做法互斥
+  if (tech === 'stew' && !has(MEAL_WET) && has(MEAL_DRY)) s -= 4;
+  if (MEAL_MED.indexOf(String(area).toLowerCase()) !== -1 ||
+      MEAL_MED_C.indexOf(String(country).toLowerCase()) !== -1) s += 2;
+  return s;
+}
+
+/* 查一次 TheMealDB：按食材筛出候选，再**按做法打分**，及格的才留下。
+   返回 {q, tech, list[], i}；list 为空表示没有「做法相同」的菜，
+   界面会自动退回 AI 图并说明原因 —— 绝不会出现破图或空白。 */
 async function lookupRealDish(day) {
   const qs = realQueries(day);
   const seen = new Set();
-  let list = [];
-  let mealTried = 0;
+  const cands = [];
+  let tried = 0;
   for (const q of qs) {
-    if (list.length >= MEAL_MAX || mealTried >= MEAL_MAX_Q) break;
-    mealTried++;
+    if (tried >= MEAL_MAX_Q) break;
+    tried++;
     let meals = [];
     try {
       const r = await fetch(MEAL_API + 'filter.php?i=' + encodeURIComponent(q));
       const j = await r.json();
       meals = (j && j.meals) || [];
     } catch (e) { continue; }        // 断网只是少一个查询词，不影响其他词
-    let got = 0;
     for (const m of meals) {
-      if (got >= MEAL_PER_QUERY) break;
       if (!m || !m.strMealThumb || seen.has(m.idMeal)) continue;
       seen.add(m.idMeal);
-      got++;
-      list.push({ id: m.idMeal, name: m.strMeal, thumb: m.strMealThumb, area: m.strArea || '' });
+      cands.push({ id: m.idMeal, name: m.strMeal, thumb: m.strMealThumb,
+        area: m.strArea || '', country: m.strCountry || '', q });
     }
   }
-  if (list.length > 1) {
-    /* 排序偏好（分越低越靠前）：
-       ① 菜名里出现查询词的优先 —— 那八成真就是这道菜；
-       ② 其次是地中海菜系 —— 气质跟本项目更搭（不排的话「牛肉」第一条是委内瑞拉菜）；
-       ③ 再按取到的先后（查询词越具体越靠前）。
-       ①必须比②权重大：只按菜系排会出现「猪里脊」配一张西班牙土豆的照片。 */
-    const words = String(qs[0] || '').split(' ').filter(Boolean);
-    const rank = (m) => {
-      const nm = String(m.name).toLowerCase();
-      const hitName = words.some((w) => nm.indexOf(w) !== -1);
-      const med = MEAL_MED.indexOf(String(m.area).toLowerCase()) !== -1;
-      return (hitName ? 0 : 2) + (med ? 0 : 1);
-    };
-    list = list.map((m, i) => ({ m, i }))
-      .sort((a, b) => (rank(a.m) - rank(b.m)) || (a.i - b.i))
-      .map((x) => x.m);
-  }
-  return { q: qs[0] || '', list: list.slice(0, 6), i: 0 };
+  const scored = cands
+    .map((c) => ({ c, s: scoreRealMatch(c.name, c.area, c.country, day) }))
+    .filter((x) => x.s >= MEAL_MIN_SCORE)
+    .sort((a, b) => (b.s - a.s) || (qs.indexOf(a.c.q) - qs.indexOf(b.c.q)));
+  const list = scored.slice(0, MEAL_MAX).map((x) => ({
+    id: x.c.id, name: x.c.name, thumb: x.c.thumb, area: x.c.area }));
+  return { q: qs[0] || '', tech: dayTechnique(day), list, i: 0 };
 }
 
 /* 补取当前选中那条的详情（YouTube 视频 + 原站链接）。
@@ -1591,7 +1708,7 @@ async function lookupRealDetail(day) {
   return det;
 }
 
-/* 确保当前方案每天都有真实照片。查不到的日子 list 为空，
+/* 确保当前方案每天都有真实照片。没有「做法相同」的日子 list 为空，
    由 imgUrl() 自动退回 AI 图 —— 绝不会出现破图或空白。
    只直连模式用；后端模式的图在服务端烘焙，不参与这里。 */
 let realBusy = false;
@@ -1604,7 +1721,7 @@ async function ensureReal() {
   try {
     await Promise.all(need.map(async (d) => {
       try { d.real = await lookupRealDish(d); }
-      catch (e) { d.real = { q: '', list: [], i: 0 }; }
+      catch (e) { d.real = { q: '', tech: dayTechnique(d), list: [], i: 0 }; }
     }));
     writeMenus();
   } finally { realBusy = false; }
@@ -1621,11 +1738,21 @@ const RECIPE_PLATFORMS = [
   { k:'bili',n:'哔哩哔哩', d:'长视频更完整', u:(q) => 'https://search.bilibili.com/all?keyword=' + encodeURIComponent(q) },
   { k:'xcf', n:'下厨房',  d:'图文步骤',     u:(q) => 'https://www.xiachufang.com/search/?keyword=' + encodeURIComponent(q) }
 ];
-/* 搜索词用「荤菜名 + 做法」，比整条菜名命中率高得多：
-   「香煎青花鱼配藜麦沙拉」在小红书几乎搜不到，「青花鱼做法」一搜一大把。 */
+/* 搜索词必须带**做法**，不能只给食材名 ——
+   用户实测「鱼做法」在小红书/抖音出来一大堆水煮鱼、红烧鱼，跟本项目的零油烟地中海完全不是一回事。
+   所以拼成「主做法 具体食材 做法 零油烟 地中海」：
+   ① 主做法排第一（烤 / 白灼 / 炖煮…）；② 食材用**具体名**（青花鱼，而不是「鱼」）；
+   ③ 再补「零油烟 地中海」两个词，把重油做法挤下去。 */
 function recipeKeyword(day) {
-  const k = String((day && day.tn) || (day && day.title) || '').trim();
-  return k ? k + '做法' : '地中海健康午餐做法';
+  const parts = [];
+  const m = String((day && day.method) || '').split(/[·・]/)[0].trim();
+  if (m) parts.push(m);
+  const k = proteinName(day) || String((day && day.title) || '').trim();
+  if (k) parts.push(k);
+  parts.push('做法');
+  parts.push('零油烟');
+  parts.push('地中海');
+  return parts.join(' ');
 }
 
 /* 详情页的「看做法视频 · 图文教程」板块：
@@ -1638,6 +1765,7 @@ const SVG_LINK = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" st
 
 function recipeLinksHTML(day, real) {
   const kw = recipeKeyword(day);
+  const techCn = TECH_CN[dayTechnique(day)] || '零油烟';
   const det = (day && day.real && day.real.det) || null;
   const hits = [];
   if (real && real.id) {
@@ -1650,7 +1778,7 @@ function recipeLinksHTML(day, real) {
   let html = '<div class="secttl"><h3>看做法视频 · 图文教程</h3><span class="more">在新窗口打开</span></div>';
   html += '<div class="card recipl">';
   html += '<div class="rlq">搜索词：<b>' + esc(kw) + '</b>' +
-    (hits.length ? '　·　已匹配到 ' + hits.length + ' 条同食材的真实菜谱' : '') + '</div>';
+    (hits.length ? '　·　已匹配到「' + esc(techCn) + '」的真实菜谱' : '') + '</div>';
   html += '<div class="rlgrid">';
   hits.forEach((h) => {
     html += '<a class="rl hit" href="' + esc(h.href) + '" target="_blank" rel="noopener noreferrer">' +
@@ -1665,7 +1793,9 @@ function recipeLinksHTML(day, real) {
       '<span class="go">搜索 →</span></a>';
   });
   html += '</div>';
-  html += '<div class="srctip">抖音、小红书没有公开接口，所以这里是<b>搜索深链</b>而不是抓取到的某条视频 —— ' +
+  html += '<div class="srctip">搜索词里带了<b>' + esc(techCn) + '</b>这个做法和「零油烟 地中海」，' +
+    '是为了把水煮鱼、红烧肉这类重油做法挤掉，只留跟上面做法一致的结果。' +
+    '抖音、小红书没有公开接口，所以这里是<b>搜索深链</b>而不是抓取到的某条视频 —— ' +
     '点进去就是该平台针对「' + esc(kw) + '」的最新结果，不会失效。</div>';
   html += '</div>';
   return html;
@@ -1692,6 +1822,14 @@ function realPick(day) {
   const r = day && day.real;
   if (!r || !r.list || !r.list.length) return null;
   return r.list[Math.min(Math.max(r.i || 0, 0), r.list.length - 1)] || null;
+}
+
+/* 真实照片模式「查过了、但一张做法相同的都没找到」——
+   详情页要说明为什么这一天用的是 AI 图，不能让用户以为坏了 */
+function realMiss(day) {
+  if (USE_BACKEND || state.imgSrc !== 'real') return false;
+  const r = day && day.real;
+  return !!r && (!r.list || !r.list.length);
 }
 
 /* =========================================================================
@@ -1946,7 +2084,8 @@ function renderDay() {
   const serv = d.servings || COMPANY;
   const baseTotal = num(d.total_g) || (d.ing || []).reduce((s, i) => s + num(i.g), 0);
   const aiImg = !!imgUrl(state.plan, d.id);
-  const real = realPick(d);          // 命中 TheMealDB 时才有值，否则 null
+  const real = realPick(d);          // 命中「做法相同」的 TheMealDB 菜谱时才有值，否则 null
+  const realTried = realMiss(d);     // 查过了但没有同做法的 → 详情页要说明为什么用了 AI 图
 
   let html = '<div class="wrap">';
 
@@ -1970,7 +2109,13 @@ function renderDay() {
   if (real) {
     html += '<div class="imgcred">真实照片来自 <b>TheMealDB</b> 的「' + esc(real.name) + '」' +
       (real.area ? '（' + esc(real.area) + '）' : '') +
-      ' —— 同为「' + esc(recipeKeyword(d).replace(/做法$/, '')) + '」类食材的相近菜品，<b>不是这道菜的实拍</b>。</div>';
+      ' —— 同为「' + esc(TECH_CN[dayTechnique(d)] || '零油烟') + '」做法的相近菜品，<b>不是这道菜的实拍</b>。</div>';
+  } else if (realTried) {
+    /* 库里没有「做法相同」的菜（实测：烤鱼 —— 只有炖鱼、煎鱼、鱼汤）。
+       与其放一张做法不对的图，不如退回 AI 图并把原因说清楚。 */
+    html += '<div class="imgcred">这一天在 <b>TheMealDB</b> 里没找到「' +
+      esc(TECH_CN[dayTechnique(d)] || '零油烟') + '」做法的「' + esc(proteinName(d)) +
+      '」，已自动改用 AI 配图（可在「设置 → 配图来源」切换，或点下面按钮换一张）。</div>';
   }
   /* 直连模式下配图随菜单自动出来，所以这里不再是「生成」而是「换一张」 */
   html += '<div class="acts">' +
@@ -2315,8 +2460,9 @@ function renderSetup() {
         opt('real', state.imgSrc, '真实照片 · TheMealDB（免费、无需 Key、国内可直连）') +
         opt('ai',   state.imgSrc, 'AI 生成配图 · ' + IMG_MODEL) +
       '</select>' +
-      '<div class="hint"><b>真实照片</b>：按食材从 TheMealDB 匹配<b>真实拍摄</b>的菜品照片，' +
-      '还附带原菜谱与 YouTube 演示；缺点是它是<b>同食材的相近菜品，不是这道菜的实拍</b>。' +
+      '<div class="hint"><b>真实照片</b>：先按食材筛，再<b>只留做法相同</b>的（烤配烤、白灼配白灼、' +
+      '炖煮配炖煮），煎炸与做法不符的直接淘汰，并附原菜谱与 YouTube 演示；' +
+      '缺点是它仍是<b>相近菜品，不是这道菜的实拍</b>。库里没有同做法菜品时自动退回 AI 图。' +
       '<b>AI 配图</b>：按这道菜的菜名与食材现画一张，一定贴合本菜，但属于生成图。' +
       '两者都免费、随时可切。</div></div>' +
       '<div style="display:flex;gap:10px;flex-wrap:wrap">' +
@@ -2343,16 +2489,18 @@ function renderSetup() {
   const realOn = !USE_BACKEND && state.imgSrc === 'real';
   html += '<div class="card ab" style="margin-top:16px"><h4>关于配图</h4><ul>' +
     (realOn
-      ? '<li>当前用 <b>真实照片</b>：来自 <b>TheMealDB</b>（免费、无需 API Key、国内可直连），' +
-        '按「荤菜 + 主食 + 蔬菜」的英文食材词匹配<b>真实拍摄</b>的菜品照片。</li>' +
-        '<li>⚠️ 照片是<b>同食材的相近菜品，不是这道菜的实拍</b> —— 详情页会标明来源与原始菜名，请不要去掉这个说明。</li>' +
-        '<li>同时附上该菜谱的 <b>YouTube 做法演示</b>与原文链接；抖音 / 小红书 / B站 / 下厨房 提供搜索深链。</li>'
+      ? '<li>当前用 <b>真实照片</b>：来自 <b>TheMealDB</b>（免费、无需 API Key、国内可直连）。' +
+        '匹配分两步：先按荤菜/主食/蔬菜的英文食材词筛出候选，' +
+        '再<b>按做法打分</b>（烤 / 蒸 / 白灼 / 焯水 / 炖煮 / 凉拌），煎炸和做法不符的直接淘汰。</li>' +
+        '<li>⚠️ 照片是<b>同做法的相近菜品，不是这道菜的实拍</b> —— 详情页会标明来源与原始菜名，请不要去掉这个说明。</li>' +
+        '<li>同时附上该菜谱的 <b>YouTube 做法演示</b>与原文链接；抖音 / 小红书 / B站 / 下厨房 提供搜索深链，搜索词里带上了这道菜的做法与「零油烟 地中海」。</li>'
       : '<li>配图由 <b>' + esc(IMG_MODEL) + '</b> 生成，属于<b>免费</b>模型，不额外计费' +
         (USE_BACKEND ? '。' : '，也不需要 API Key。') + '</li>') +
     (USE_BACKEND
       ? '<li>图片链接带签名、有效期约 7 天，所以本页缓存的是<b>链接</b>而不是图片本身。</li>'
       : (realOn
-          ? '<li>TheMealDB 查不到对应食材时，这一天会自动退回 AI 配图，不会出现空白或破图。</li>'
+          ? '<li>没有「做法相同」的菜品时（例如<b>烤鱼</b> —— 库里只有炖鱼、煎鱼和鱼汤），' +
+            '这一天会自动退回 AI 配图并在详情页说明，不会出现空白或破图。</li>'
           : '<li>图片地址由菜名与做法确定性推导，<b>永不过期</b>，无需下载到本地。</li>')) +
     '<li>页面会在配图上标注「AI 生成配图」或「真实照片」，这是法规与诚信要求，请勿去除。</li></ul></div>';
   html += '</div></div></section></div>';
@@ -2758,11 +2906,11 @@ async function doImage(id) {
   const d = day(state.plan, id);
   if (!d || state.busy) return;
 
-  /* 直连模式 · 真实照片：在候选里往后翻一张（TheMealDB 同食材的其它菜品）。
+  /* 直连模式 · 真实照片：在候选里往后翻一张（TheMealDB 里同为这个做法的其它菜品）。
      真实照片是查出来的、不是生成的，所以「换一张」= 换候选，瞬间完成。 */
   if (!USE_BACKEND && state.imgSrc === 'real' && realPick(d)) {
     const list = (d.real && d.real.list) || [];
-    if (list.length <= 1) { toast('这个食材只匹配到一张真实照片，可在「设置」里切回 AI 配图'); return; }
+    if (list.length <= 1) { toast('这个做法只匹配到一张真实照片，可在「设置」里切回 AI 配图'); return; }
     d.real.i = ((d.real.i || 0) + 1) % list.length;
     delete d.real.det;                 // 换了候选，YouTube / 原站链接要重取
     writeMenus();
@@ -3206,8 +3354,11 @@ window.HL = {
   DEFAULT_KEY, API_BASE, LS, IMG_TTL, chatJson, post, generateDay, generateImage,
   IMG_MODEL, IMG_API, imgUrlFor, imgSeed, preloadImage, shopServings,
   /* 真实照片 / 做法链接（供测试与调试） */
-  MEAL_API, MEAL_SITE, realQueries, lookupRealDish, lookupRealDetail, realPick,
+  MEAL_API, MEAL_SITE, realQueries, lookupRealDish, lookupRealDetail, realPick, realMiss,
   recipeLinksHTML, recipeKeyword, ensureReal, RECIPE_PLATFORMS, MEAL_PROTEIN, MEAL_MED,
+  MEAL_MED_C, MEAL_MAX_Q, MEAL_MAX, MEAL_MIN_SCORE, MEAL_REJECT, MEAL_WET, MEAL_DRY,
+  MEAL_MEAT, MEAL_FLAVOR, TECH_ORDER, TECH_WORDS, TECH_CN,
+  dayTechnique, dayFlavorText, scoreRealMatch, proteinName,
   /* 图片串行队列的自检（供测试验证「一次只加载一张」） */
   imgQueueState: () => ({ pending: imgQueue.length, pumping: imgPumping, max: imgMaxLoading }),
   /* 全局限流闸门的自检（供测试验证「429 后整体冷却」） */
