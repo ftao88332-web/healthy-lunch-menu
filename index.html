@@ -17,14 +17,17 @@
        --ink-2  #456780  5.99:1  5.55:1
        --ink-3  #54748A  4.95:1  4.58:1   ← 原来 #8AA3B2 只有 2.64:1，小字基本看不清 */
   --ink:#0F2E42; --ink-2:#456780; --ink-3:#54748A;
-  --warn:#B4690E; --warn-bg:#FDF3E3; --err:#B3322F; --err-bg:#FCEEED;
+  --warn:#8F5209; --warn-bg:#FDF3E3; --err:#B3322F; --err-bg:#FCEEED;
   --r:16px; --r-sm:10px; --r-xs:8px; --r-lg:22px;
   --sh:0 2px 8px rgba(15,46,66,.06), 0 12px 32px -12px rgba(15,46,66,.14);
   --sh-sm:0 1px 3px rgba(15,46,66,.07);
   --sh-lg:0 24px 56px -22px rgba(15,46,66,.30);
   --ring:0 0 0 3px rgba(60,147,192,.30);
-  --grad-hero:linear-gradient(118deg,#0A2E48 0%,#11466A 46%,#1B6C99 100%);
+  --grad-hero:linear-gradient(118deg,#0A2E48 0%,#11466A 46%,#155F87 100%);
   --grad-green:linear-gradient(135deg,#4CB37C,#2C7A50);
+  /* 白字专用的深绿渐变：#4CB37C 配白字只有 2.6:1，过不了 AA。
+     品牌亮绿 --grad-green 留给没有文字的装饰条。 */
+  --grad-green-d:linear-gradient(135deg,#2F8456,#256B46);
   --sans:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Segoe UI",Roboto,sans-serif;
 }
 html,body{height:100%}
@@ -58,16 +61,23 @@ a:hover{text-decoration:underline}
 .topbar .act{display:flex;gap:10px;align-items:center}
 
 /* ---------- 按钮 ---------- */
+/* 主按钮：底色用 --green-d（白字 5.24:1，过 AA）。--green #3E9E6A 只有 3.33:1，
+   亮绿留给没有文字的装饰元素。 */
 .btn{
   display:inline-flex;align-items:center;justify-content:center;gap:7px;
-  padding:11px 22px;border-radius:999px;font-size:14px;font-weight:500;
-  background:var(--green);color:#fff;transition:filter .15s,transform .1s;
+  padding:11px 22px;border-radius:999px;font-size:14px;font-weight:600;
+  background:var(--green-d);color:#fff;letter-spacing:.1px;
+  box-shadow:0 8px 18px -10px rgba(44,122,80,.75);
+  transition:background .16s,box-shadow .16s,transform .1s;
   white-space:nowrap;
 }
-.btn:hover{filter:brightness(1.06)}
-.btn:active{transform:scale(.985)}
-.btn.ghost{background:#fff;color:var(--blue);border:1px solid var(--line-2)}
-.btn.ghost:hover{background:var(--bg);filter:none}
+.btn:hover{background:#327f57;box-shadow:0 12px 24px -10px rgba(44,122,80,.85);transform:translateY(-1px)}
+.btn:active{transform:translateY(0) scale(.985);box-shadow:0 4px 10px -8px rgba(44,122,80,.8)}
+.btn[disabled]:hover{background:var(--green-d);box-shadow:none;transform:none}
+/* 次按钮：描边式，hover 时描边转蓝、底色微染，点击有下沉反馈 */
+.btn.ghost{background:#fff;color:var(--blue);border:1px solid var(--line-2);box-shadow:none}
+.btn.ghost:hover{background:#F4FAFE;border-color:var(--blue-l);color:var(--navy);transform:translateY(-1px)}
+.btn.ghost:active{transform:translateY(0) scale(.985);background:#EAF4FB}
 .btn.navy{background:var(--navy)}
 .btn.sm{padding:8px 15px;font-size:13px}
 .btn.block{width:100%}
@@ -155,10 +165,10 @@ a:hover{text-decoration:underline}
 }
 .heroart .metrics .m{padding:12px 15px;text-align:center;border-right:1px solid var(--line)}
 .heroart .metrics .m:last-child{border-right:none}
-.heroart .metrics .v{font-size:17px;font-weight:700;color:var(--navy);line-height:1.2;
-  font-variant-numeric:tabular-nums}
-.heroart .metrics .v .u{font-size:11px;font-weight:400;color:var(--ink-3);margin-left:1px}
-.heroart .metrics .l{font-size:11px;color:var(--ink-3);margin-top:3px}
+.heroart .metrics .v{font-size:19px;font-weight:700;color:var(--navy);line-height:1.15;
+  font-variant-numeric:tabular-nums;letter-spacing:-.3px}
+.heroart .metrics .v .u{font-size:10.5px;font-weight:500;color:var(--ink-2);margin-left:1px;letter-spacing:0}
+.heroart .metrics .l{font-size:11px;color:var(--ink-2);margin-top:3px}
 
 /* ---------- 通用区块 ---------- */
 main{padding-bottom:24px}
@@ -220,7 +230,7 @@ main{padding-bottom:24px}
 }
 .day .thumb .today{
   position:absolute;right:10px;top:10px;padding:4px 11px;border-radius:999px;
-  font-size:11.5px;font-weight:600;color:#fff;background:var(--green);
+  font-size:11.5px;font-weight:600;color:#fff;background:var(--green-d);
   box-shadow:0 6px 16px -6px rgba(44,122,80,.9);
 }
 .day .body{padding:14px 15px 16px;flex:1;display:flex;flex-direction:column;gap:7px}
@@ -228,11 +238,24 @@ main{padding-bottom:24px}
 .day .title{font-size:15.5px;font-weight:600;color:var(--navy);line-height:1.38;letter-spacing:-.1px}
 .day .sub{font-size:12.5px;color:var(--ink-2);line-height:1.5;
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.day .foot{display:flex;align-items:center;gap:8px;margin-top:auto;padding-top:11px;border-top:1px dashed var(--line)}
-.day .foot .k{font-size:12.5px;font-weight:600;color:var(--green-d);background:#EAF6EF;
-  padding:3px 9px;border-radius:999px;font-variant-numeric:tabular-nums}
-.day .foot .k .u{font-size:10px;font-weight:400;color:var(--green-d);opacity:.72;margin-left:1px}
-.day .foot .m{font-size:11.5px;color:var(--ink-3);margin-left:auto}
+/* 营养数字条：数字放大、单位缩小、标签退到最弱一档 —— 一眼先看到数。
+   ⚠️ 这里不能再用 opacity 压小字（原来 .k .u 是 opacity:.72，实测只有 2.86:1），
+   要弱化就用 --ink-2 这种「本来对比度就够」的颜色。 */
+.day .dstat{display:flex;margin-top:auto;padding-top:11px;border-top:1px dashed var(--line)}
+.day .dstat .s{flex:1;min-width:0;text-align:center;border-right:1px solid var(--line);padding:0 2px}
+.day .dstat .s:last-child{border-right:none}
+.day .dstat .s .v{font-size:16px;font-weight:700;color:var(--navy);line-height:1.15;
+  font-variant-numeric:tabular-nums;letter-spacing:-.2px}
+.day .dstat .s .v .u{font-size:9.5px;font-weight:500;color:var(--ink-2);margin-left:1px;letter-spacing:0}
+.day .dstat .s .l{font-size:10.5px;color:var(--ink-2);margin-top:2px}
+.day .dmeta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:9px}
+/* 烹饪方式 badge：原来是灰色纯文字，现在做成有底色的小标签 */
+.day .mtag{
+  display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:999px;
+  font-size:11px;font-weight:600;color:var(--blue);background:#E8F2F9;
+  border:1px solid #D3E6F4;letter-spacing:.2px;
+}
+.day .mtag.time{color:var(--ink-2);background:var(--bg);border-color:var(--line-2);font-weight:500}
 
 .empty{
   padding:64px 24px;text-align:center;color:var(--ink-3);
@@ -289,11 +312,17 @@ main{padding-bottom:24px}
 .dhead h1{font-size:clamp(23px,2.9vw,31px);font-weight:600;color:var(--navy);line-height:1.28;letter-spacing:-.3px}
 .dhead .dsub{font-size:14.5px;color:var(--ink-2);margin-top:8px}
 .dhead .tags{display:flex;gap:7px;flex-wrap:wrap;margin-top:14px}
-.nutri{display:grid;grid-template-columns:repeat(5,1fr);gap:9px;margin-top:20px}
-.nutri .n{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 6px;text-align:center}
-.nutri .v{font-size:17px;font-weight:700;color:var(--navy);line-height:1.2;font-variant-numeric:tabular-nums}
-.nutri .v .u{font-size:10.5px;font-weight:400;color:var(--ink-3);margin-left:1px}
-.nutri .l{font-size:11px;color:var(--ink-3);margin-top:3px}
+/* 营养数值卡：数字放大到 23px、单位缩到 10px，标题用 --ink-2（4.5:1 以上）。
+   热量那张加一层淡绿底 + 绿字，作为「主指标」和其余四张拉开层级。 */
+.nutri{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:20px}
+.nutri .n{background:#fff;border:1px solid var(--line);border-radius:14px;
+  padding:14px 6px 12px;text-align:center;box-shadow:var(--sh-sm)}
+.nutri .n:first-child{background:linear-gradient(180deg,#F2FAF5,#E7F5EE);border-color:#D3EBDD}
+.nutri .n:first-child .v{color:var(--green-d)}
+.nutri .v{font-size:23px;font-weight:700;color:var(--navy);line-height:1.1;
+  font-variant-numeric:tabular-nums;letter-spacing:-.6px}
+.nutri .v .u{font-size:10px;font-weight:500;color:var(--ink-2);margin-left:2px;letter-spacing:0}
+.nutri .l{font-size:11.5px;color:var(--ink-2);margin-top:5px;font-weight:500}
 
 .chefsay{
   display:flex;gap:14px;margin-top:22px;padding:18px 20px;border-radius:18px;
@@ -359,7 +388,7 @@ main{padding-bottom:24px}
 .step:last-child{border-bottom:none;padding-bottom:0}
 .step .sn{
   width:28px;height:28px;flex:none;border-radius:50%;display:grid;place-items:center;
-  background:var(--grad-green);color:#fff;font-size:13px;font-weight:600;
+  background:var(--grad-green-d);color:#fff;font-size:13px;font-weight:600;
   box-shadow:0 6px 14px -6px rgba(44,122,80,.7);
 }
 .step .st{font-size:14.5px;font-weight:600;color:var(--navy);margin-bottom:3px}
@@ -703,6 +732,52 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,[t
   .wa-grid{grid-template-columns:repeat(2,1fr)}
   .bene > summary{font-size:16px;padding:14px 16px}
 }
+
+/* =========================================================================
+   UI 视觉优化新增样式（2026-10-08 第二轮）
+   ========================================================================= */
+
+/* ---- 空状态：给图标一个底托，标题和说明拉开层级 ---- */
+.empty .eic{
+  width:64px;height:64px;margin:0 auto;border-radius:20px;display:grid;place-items:center;
+  background:linear-gradient(140deg,#EAF6EF,#DCEFFB);
+  box-shadow:inset 0 0 0 1px rgba(62,158,106,.14);
+}
+.empty .et{font-size:17.5px;color:var(--navy);font-weight:600;margin:16px 0 8px}
+.empty .ed{font-size:13.5px;color:var(--ink-2);margin:0 auto 20px;max-width:34em;line-height:1.7}
+.empty .ehint{
+  display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:0 auto 22px;max-width:44em;
+}
+.empty .ehint span{
+  font-size:12.5px;color:var(--ink-2);background:#fff;border:1px solid var(--line);
+  border-radius:999px;padding:6px 13px;
+}
+
+/* ---- 生成失败：首页常驻提示条（关掉浮层后也还在，直到重试成功） ---- */
+.errbar{
+  display:flex;align-items:flex-start;gap:12px;margin:0 0 18px;padding:14px 16px;
+  background:var(--err-bg);border:1px solid #F0CFCD;border-radius:var(--r);
+}
+.errbar .ebi{flex:none;width:30px;height:30px;border-radius:10px;display:grid;place-items:center;
+  background:#fff;color:var(--err)}
+.errbar .ebt{flex:1;min-width:0}
+.errbar .ebt b{display:block;font-size:14px;color:var(--err);margin-bottom:3px}
+.errbar .ebd{font-size:12.5px;color:var(--ink-2);line-height:1.68;word-break:break-word}
+.errbar .ebx{
+  flex:none;width:28px;height:28px;border-radius:50%;color:var(--ink-2);font-size:15px;
+  display:grid;place-items:center;
+}
+.errbar .ebx:hover{background:rgba(15,46,66,.07);color:var(--ink)}
+.errbar .btn{align-self:center;flex:none}
+@media(max-width:640px){
+  .errbar{flex-wrap:wrap}
+  .errbar .ebt{flex-basis:100%;order:3}
+}
+
+/* ---- 一周汇总：数字同步放大，和日卡/详情页一个口径 ---- */
+.wa-cell .v{font-size:21px;letter-spacing:-.4px}
+.wa-cell .v .u{font-size:11px;font-weight:500;color:var(--ink-2)}
+.wa-cell .l{font-size:12px;color:var(--ink-2);margin-top:3px}
 </style>
 </head>
 <body>
@@ -2152,7 +2227,11 @@ const state = {
   fKcal: 'all',
   hideAvoid: false,
   /* 首次免责提示是否已读 */
-  seen: true
+  seen: true,
+  /* 上一次生成失败的人话说明。非空时首页顶部显示常驻提示条 ——
+     否则用户把进度浮层一关，界面上就完全看不出「刚才失败了」。
+     下次开始生成时清空，成功/失败都会重新赋值。 */
+  lastErr: null
 };
 let toastTimer = null;
 
@@ -2356,16 +2435,24 @@ function renderHome() {
     html += '<div class="planbar"><span class="meta">' + (fb ? '内置保底菜谱' : '已由 AI 联网生成') + '</span></div>';
   }
 
+  /* 生成失败过就常驻一条提示 —— 关掉进度浮层后也还看得见 */
+  html += errBarHTML();
+
   if (days.length) {
     html += weekAggHTML(days);
     html += filterBarHTML(days);
   }
 
   if (!days.length) {
-    html += '<div class="empty"><svg width="46" height="46" viewBox="0 0 24 24" fill="none" ' +
-      'stroke="#B7CBD8" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">' +
-      '<path d="M3.5 11h17a8.5 8.5 0 0 1-17 0zM6 19.5h12"/></svg>' +
-      '<div class="et">还没有菜谱</div><div class="ed">点「生成本周菜单」，AI 主厨会联网检索真实做法，为周一到周五各设计一份午餐。</div>' +
+    html += '<div class="empty"><div class="eic">' +
+      '<svg width="30" height="30" viewBox="0 0 24 24" fill="none" ' +
+      'stroke="#3E9E6A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">' +
+      '<path d="M3.5 11h17a8.5 8.5 0 0 1-17 0zM6 19.5h12"/></svg></div>' +
+      '<div class="et">还没有菜谱</div>' +
+      '<div class="ed">点下面的按钮，AI 主厨会联网检索真实做法，' +
+      '为周一到周五各设计一份一人份午餐。</div>' +
+      '<div class="ehint"><span>每天一个荤菜</span><span>精准到克</span>' +
+      '<span>蒸煮烤凉拌 · 几乎无油烟</span><span>约 1–3 分钟</span></div>' +
       '<button class="btn" data-act="genweek">开始生成</button></div>';
   } else {
     const shown = filterDays(days);
@@ -2418,8 +2505,22 @@ function dayCard(d, i) {
       '<div class="wk">' + esc(d.wk) + ' · ' + esc(d.en) + '</div>' +
       '<div class="title">' + esc(d.title) + '</div>' +
       '<div class="sub">' + esc(d.sub || '') + '</div>' +
-      '<div class="foot"><span class="k">' + esc(Math.round(num(d.kcal))) + '<span class="u">kcal</span></span>' +
-      '<span class="m">' + esc(d.method || '') + '</span></div>' +
+      /* 三个关键数字：热量 / 蛋白质 / 膳食纤维。数字大、单位小、标签最弱。
+         ⚠️ 做法标签的 class 必须叫 .mtag —— .tag 是左上角那个荤菜标签，
+         test_web.js 有「.day .tag 恰好 5 个且顺序为 鱼,虾,鸡肉,牛肉,猪肉」的硬断言。 */
+      '<div class="dstat">' +
+        '<div class="s"><div class="v">' + esc(Math.round(num(d.kcal))) +
+          '<span class="u">kcal</span></div><div class="l">热量</div></div>' +
+        '<div class="s"><div class="v">' + esc(r1(num(d.p))) +
+          '<span class="u">g</span></div><div class="l">蛋白质</div></div>' +
+        '<div class="s"><div class="v">' + esc(r1(num(d.fb))) +
+          '<span class="u">g</span></div><div class="l">膳食纤维</div></div>' +
+      '</div>' +
+      '<div class="dmeta">' +
+        (d.method ? '<span class="mtag">' + esc(String(d.method).split('·')[0].trim()) + '</span>' : '') +
+        /* time 是后加的字段，老菜单没有就不显示，绝不编一个数字 */
+        (d.time ? '<span class="mtag time">约 ' + esc(d.time) + ' 分钟</span>' : '') +
+      '</div>' +
     '</div></button>';
 }
 
@@ -2990,7 +3091,8 @@ function busyErr(e) {
   /* 用户可能点了「后台运行，先看看别的」把浮层关掉 —— 这时不能再静默吞掉错误，
      否则界面上一点反馈都没有，看起来就像「点了没反应」。 */
   if (!state.busy) { toast('生成失败：' + msg.slice(0, 70)); return; }
-  state.busy.err = msg;
+  state.busy.err = msg;                 /* 浮层里仍然显示原始报错（测试有断言） */
+  state.lastErr = humanErr(msg);        /* 关掉浮层后靠这条常驻提示兜底 */
   state.busy.title = '生成失败';
   renderLayers();
   renderChrome();
@@ -3001,6 +3103,7 @@ async function doGenWeek() {
   if (state.busy) return;
   const plan = state.plan;
   const total = DAY_PLAN.length;
+  state.lastErr = null;                 /* 重新开始了，旧的失败提示先撤掉 */
   busy('AI 主厨正在设计本周菜单',
     '正在联网检索真实菜谱，核对温度与时间…', 4,
     '共 ' + total + ' 天，每天一个荤菜；每天都会先联网检索再落笔，全程约 1–3 分钟。');
@@ -3534,6 +3637,44 @@ function avoidLine() {
     '。任何食材、替代项、调味料里都不允许出现它们。\n';
 }
 
+/* ---- 生成失败：把原始报错翻译成人话 + 首页常驻提示条 ---- */
+/* ⚠️ 只用于「给用户看的那一份」。state.busy.err 里仍然存**原始报错** ——
+   test_web.js / test_web_backend.js 都有针对原始文案（429 / 超时 / BACKEND_BASE…）
+   的断言，改这里不要顺手把 busy.err 也改成人话。 */
+function humanErr(raw) {
+  const m = String(raw == null ? '' : raw);
+  if (/429|并发|限流|too many|rate ?limit/i.test(m)) {
+    return 'AI 服务当前请求过多（429），自动退避重试后仍然失败。等 1–2 分钟再点一次通常就好。';
+  }
+  if (/401|403|unauthor|invalid.*key|key.*invalid|密钥|Key 无效/i.test(m)) {
+    return 'API Key 无效或已过期。请到「设置」里更新 Key，再重新生成。';
+  }
+  if (/timeout|超时|abort|timed out/i.test(m)) {
+    return '请求超时了（网络慢，或模型在排队）。可以直接重试，也可以换一个更快的模型。';
+  }
+  if (/failed to fetch|networkerror|network error|网络|ERR_|offline/i.test(m)) {
+    return '连不上 AI 服务。检查一下网络或代理，然后重试。';
+  }
+  if (/unexpected token|JSON|parse/i.test(m)) {
+    return 'AI 返回的内容格式不对（偶发情况）。直接重试即可。';
+  }
+  return m.slice(0, 180);
+}
+
+function errBarHTML() {
+  if (!state.lastErr) return '';
+  return '<div class="errbar">' +
+    '<div class="ebi"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" ' +
+      'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+      '<path d="M12 8v5M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>' +
+      '</svg></div>' +
+    '<div class="ebt"><b>上一次生成没有成功</b>' +
+      '<div class="ebd">' + esc(state.lastErr) + '</div></div>' +
+    '<button class="btn sm" data-act="genweek"' + (state.busy ? ' disabled' : '') + '>重试</button>' +
+    '<button class="ebx" data-act="clearerr" aria-label="关闭提示">✕</button>' +
+    '</div>';
+}
+
 /* ---- 一周营养汇总 ---- */
 function weekAggHTML(days) {
   const n = days.length;
@@ -3765,6 +3906,9 @@ document.addEventListener('click', function (ev) {
       break;
     case 'copyshop':
       doCopyShop();
+      break;
+    case 'clearerr':
+      state.lastErr = null; render();
       break;
     case 'fmeat':
       state.fMeat = arg || 'all'; render();
@@ -4001,6 +4145,7 @@ window.HL = {
   doGenWeek, doSwap, doRegen, doImage, openSwapSheet, openAddSheet, filterSheetList,
   avoidHits, avoidLine, weekAggHTML, filterDays, filterBarHTML, printHTML, doPrint,
   shopText, doCopyShop, legalHTML, avoidCardHTML, AVOID_OPTS, AVOID_LABEL, KCAL_BANDS,
+  humanErr, errBarHTML,
   pickFromSheet, customFromSheet, changeServ, setServ, testKey, toast,
   DEFAULT_KEY, API_BASE, LS, IMG_TTL, chatJson, post, generateDay, generateImage,
   IMG_MODEL, IMG_API, imgUrlFor, imgSeed, preloadImage, shopServings,
