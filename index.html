@@ -849,6 +849,29 @@ const TOTAL_RANGE= W.totalRange || [550,1000];
 const VALID_HL   = new Set(W.validHlIcons || []);
 const CAT_ALIAS  = W.catAlias   || {};
 const DAY_PLAN   = W.dayPlan    || [];
+/* 五种荤菜（顺序无关，只是「随机排列的取值池」）。
+   ⚠️ DAY_PLAN 里带的 type/tn 是**固定默认顺序**（周一鱼、周二虾…），
+      只用于内置保底菜单。真正生成时走 shuffledDayPlan() 打乱。
+      不能改 DAY_PLAN 本身 —— 保底菜谱、小程序 fallback 与若干测试
+      都按「鱼,虾,鸡肉,牛肉,猪肉」断言（test_web.js 的 .tag 顺序断言等）。 */
+const MEAT_ROTATION = ['fish', 'shrimp', 'chicken', 'beef', 'pork'];
+
+/* 把五种荤菜**随机打乱**后分配到周一到周五（每次生成菜单都重新抽一次）。
+   ⚠️ 是「排列」而不是「有放回随机」：五种各出现且仅出现一次。
+      有放回随机会出现「一周三次牛肉、另外两种荤菜整周缺席」，
+      既违背「每天一个荤菜、五类轮换」的设计，采购也没法按周计划。 */
+function shuffledDayPlan() {
+  const types = MEAT_ROTATION.slice();
+  for (let i = types.length - 1; i > 0; i--) {          /* Fisher–Yates */
+    const j = Math.floor(Math.random() * (i + 1));
+    const t = types[i]; types[i] = types[j]; types[j] = t;
+  }
+  return DAY_PLAN.map((m, i) => Object.assign({}, m, {
+    type: types[i],
+    tn: TYPE_LABEL[types[i]] || types[i]
+  }));
+}
+
 const PLANS      = W.plans      || {};
 const PROMPTS    = W.prompts    || {};
 const MODELS     = W.models     || {};
@@ -1709,11 +1732,56 @@ function revealReadyImages() {
   }
 }
 
+/* ---- 配图预取：把图在「生成菜单」的过程中就做掉 ----
+
+   用户点「生成菜单」之后要等 20 多秒模型吐字；如果配图等菜单渲染完再一张张去生成，
+   首页就会长时间停在**内置的离线占位图**上（assets/dish-*.jpg），看起来像配图坏了。
+   所以每天的文字一好，就立刻把它塞进**同一个串行队列**预取。
+
+   ⚠️ 复用同一个队列而不是另起一套并发：SiliconFlow 实测并发 4 个有 3 个直接 429，
+      只有串行才稳（见下面 pumpImages 的注释）。预取和正式加载必须共用这一道闸门。 */
+let imgPreTotal = 0;
+let imgPreDone = 0;
+
+function prefetchDayImage(d) {
+  if (!d || USE_BACKEND) return;          // 后端模式的图在服务端烘焙，不走这里
+  if (!imgKey()) return;                  // 没填 Key 就别排了，排了也是失败
+  imgPreTotal++;
+  /* 命中本地缓存（含上次已经压好的 data URL）→ 不用再花额度 */
+  if (imgCacheGet(d)) { imgPreDone++; return; }
+  /* ⚠️ 任务里直接带上 day 对象，不要只存 dayId 再去查 ——
+     预取发生在 state.menus[plan] 赋值**之前**，那时候按 id 根本查不到这一天。 */
+  imgQueue.push({ prefetch: true, dayId: d.id, day: d });
+  pumpImages();
+}
+
+/* 等预取跑完。
+   ⚠️ 必须有超时兜底：某张图卡住（网络抖动 / 上游 429 长退避）不能把整个
+   「生成菜单」流程一起拖死 —— 到点就放行，首页先显示离线占位图，
+   剩下的图由渲染后的串行队列接着补（用户看到的就是交叉淡化）。 */
+function waitPrefetch(onProgress, timeoutMs) {
+  const t0 = Date.now();
+  const limit = timeoutMs || 120000;
+  return new Promise((resolve) => {
+    const tick = () => {
+      const left = imgQueue.filter((j) => j.prefetch).length;
+      if (onProgress) onProgress(imgPreDone, imgPreTotal);
+      if ((left === 0 && !imgPumping) || Date.now() - t0 > limit) return resolve();
+      setTimeout(tick, 250);
+    };
+    tick();
+  });
+}
+
 function queueImages() {
   /* 每次 render 都会重建 DOM，之前排队的元素已经不在页面上了 —— 直接清掉。
      否则队列会越积越长（每次渲染都要白等一堆已作废的任务），
-     而且 imgPumping 迟迟不释放，新图根本轮不上。 */
-  imgQueue.length = 0;
+     而且 imgPumping 迟迟不释放，新图根本轮不上。
+     ⚠️ 但**预取任务不能清**：它没有 DOM 元素、跟渲染无关，
+        清掉等于把「生成菜单时顺手做好的图」白扔掉，还得重做一遍。 */
+  for (let i = imgQueue.length - 1; i >= 0; i--) {
+    if (!imgQueue[i].prefetch) imgQueue.splice(i, 1);
+  }
   const list = document.querySelectorAll('img[data-src]:not([data-queued])');
   for (let i = 0; i < list.length; i++) {
     const el = list[i];
@@ -1744,6 +1812,14 @@ let imgLoading = 0;
 let imgMaxLoading = 0;
 
 async function loadOneImage(job) {
+  /* 预取任务：没有 DOM 元素，只负责「把图生成好并落进本地缓存」。
+     等菜单渲染出来时缓存已经命中，首页的 <img> 首帧就是真图，没有「换图」这一步。 */
+  if (job.prefetch) {
+    try { await ensureAiImage(job.day); } catch (e) { /* 预取失败不打扰用户 */ }
+    imgPreDone++;
+    return;
+  }
+
   /* 元素已经被下一次渲染换掉 —— 直接跳过，否则会占着队列白等 120 秒超时。 */
   if (!job.el.isConnected) return;
 
@@ -3162,6 +3238,12 @@ async function doGenWeek() {
   if (USE_BACKEND) return genWeekViaBackend(plan, total);
 
   const days = [];
+  /* 荤菜顺序**每次生成都重新抽一次** —— 固定的「周一鱼、周二虾…」太可预测。
+     注意 total 仍然是 5 天，只是每天抽到的荤菜不同。 */
+  const planDays = shuffledDayPlan();
+  /* ⚠️ 配图进度计数是模块级的，必须每次生成前清零 ——
+     否则第二次生成会显示「6/10」这种跨轮累加的数字。 */
+  imgPreTotal = 0; imgPreDone = 0;
   /* 并发上限**取决于模型**，不是账号级的（实测 2026-09-28）：
        glm-4.7        → 只有 2（发 3 个，第 3 个必 429 错误码 1302）
        glm-4.7-flash  → 很严（5 并发 5 个 429）
@@ -3173,16 +3255,28 @@ async function doGenWeek() {
   const batch = /glm-4\.5-air|glm-4-flash|glm-4-air/.test(chatModel()) ? 5 : 2;
   try {
     for (let i = 0; i < total; i += batch) {
-      const slice = DAY_PLAN.slice(i, i + batch);
+      const slice = planDays.slice(i, i + batch);
       const avoid = days.map((d) => d.title).filter(Boolean);
       busyMsg('正在联网检索并设计 ' + slice.map((m) => m.wk).join('、') + ' 的午餐…',
         4 + Math.round((i / total) * 90));
-      const results = await Promise.all(slice.map((meta) => generateDay(meta, plan, avoid, avoidLine())));
+      const results = await Promise.all(slice.map(async (meta) => {
+        const d = await generateDay(meta, plan, avoid, avoidLine());
+        /* ⚠️ 种子必须在**入队预取之前**定下来：配图缓存键含 img_seed，
+           先预取、后改种子 = 白出一张图（渲染时按新种子查缓存必然未命中，
+           于是同一道菜被生成两次、额度白烧）。 */
+        d.img_seed = Math.floor(Math.random() * 1000000);
+        delete d.real;
+        /* AI 配图：文字一好就排队出图。
+           真实照片模式先不排 —— 得等 TheMealDB 查完才知道哪天要退回 AI 图
+           （鱼日必然查不到真实照片），见下面配图收尾那一段。 */
+        if (state.imgSrc === 'ai') prefetchDayImage(d);
+        return d;
+      }));
       results.forEach((d) => days.push(d));
       busyMsg('已完成 ' + days.length + '/' + total + ' 天', 4 + Math.round((days.length / total) * 90));
     }
     const order = {};
-    DAY_PLAN.forEach((m, i) => { order[m.id] = i; });
+    planDays.forEach((m, i) => { order[m.id] = i; });
     /* 注意：不能写 `order[a.id] || 99` —— 周一的序号是 0，会被当成假值排到最后 */
     const rank = (d) => (order[d.id] === undefined ? 99 : order[d.id]);
     days.sort((a, b) => rank(a) - rank(b));
@@ -3191,10 +3285,25 @@ async function doGenWeek() {
     const oldServ = old.days && old.days[0] ? old.days[0].servings : COMPANY;
     days.forEach((d) => { d.servings = oldServ || COMPANY; });
 
-    /* 配图必须跟着菜单一起换，否则用户会觉得「菜单重生成了但图还是老样子」：
-       ① AI 图：新种子 → 缓存键变了 → 缓存未命中 → 重新生成（旧图自然被换掉）；
-       ② 真实照片：把旧的匹配结果清掉，让 ensureReal() 按新菜单重查。 */
-    days.forEach((d) => { d.img_seed = Math.floor(Math.random() * 1000000); delete d.real; });
+    /* ---- 配图收尾：**全部弄好再进首页** ----
+       用户明确要求首页直接就是 AI 图，不要先闪一下内置的离线占位图。
+       ① 真实照片模式：先把 5 天的 TheMealDB 匹配查完（并行、很快）；
+          没匹配到的天（鱼日必然如此）退回 AI 图，提前生成好；
+       ② AI 配图模式：预取在生成文字的过程中已经并行跑了，这里只等它排空。 */
+    if (!USE_BACKEND && state.imgSrc === 'real') {
+      busyMsg('正在为这周的菜匹配真实照片…', 91);
+      await Promise.all(days.map(async (d) => {
+        try { d.real = await lookupRealDish(d); }
+        catch (e) { d.real = { q: '', tech: dayTechnique(d), list: [], i: 0 }; }
+      }));
+      days.forEach((d) => { if (!realPick(d)) prefetchDayImage(d); });
+    }
+    if (!USE_BACKEND && imgPreTotal) {
+      await waitPrefetch((done, total) => {
+        busyMsg('正在为这周的菜生成配图 ' + done + '/' + total + '…',
+          92 + Math.round((done / Math.max(1, total)) * 6));
+      });
+    }
 
     state.menus[plan] = {
       plan,
@@ -3237,11 +3346,33 @@ async function genWeekViaBackend(plan, total) {
       days
     };
     writeMenus();
+    /* ⚠️ 后端模式的配图是**单独一个任务**在服务端烘焙的，而网页版以前从来没
+       触发过它 —— 首页于是永远显示内置的离线占位图（assets/dish-*.jpg），
+       看上去就像配图功能坏了。这里补上：烘焙完再把 img_key 拉回来。
+       失败不影响菜单本身，首页继续显示占位图，绝不白屏。 */
+    try {
+      await runJob('/api/menu/' + encodeURIComponent(plan) + '/images',
+        { plan: plan, force: false },
+        (j) => {
+          const pct = j.total ? 92 + Math.round((num(j.progress) / num(j.total)) * 6) : 93;
+          busyMsg(j.message || '正在生成配图…', Math.min(pct, 98));
+        });
+      await refreshPlanFromBackend(plan);
+    } catch (e) { /* 配图失败不影响菜单 */ }
     busyMsg('完成！', 100);
     setTimeout(() => { state.busy = null; state.view = 'home'; render(); toast('本周菜单已生成'); }, 420);
   } catch (e) {
     busyErr(e);
   }
+}
+
+/* 重新拉一次这个方案的菜单（后端刚把 img_key 写回去）。
+   ⚠️ 不能用 syncFromBackend()：它遇到「本地已有 days」就跳过，正好把这里跳过。 */
+async function refreshPlanFromBackend(plan) {
+  const m = await request('/api/menu/' + encodeURIComponent(plan), 'GET', null, 30000);
+  if (!m || !(m.days || []).length || !state.menus[plan]) return;
+  state.menus[plan].days = m.days;
+  writeMenus();
 }
 
 function saveDay(d) {
@@ -3387,8 +3518,14 @@ function doRestore(idx) {
 async function doRegen(id) {
   const d = day(state.plan, id);
   if (!d || state.busy) return;
-  const meta = DAY_PLAN.find((m) => m.id === d.id);
-  if (!meta) { toast('找不到这一天的荤菜配置'); return; }
+  /* ⚠️ 必须按**这一天自己的荤菜**取 meta：荤菜顺序已随机化，
+     拿 id 去 DAY_PLAN 里查会查到固定顺序 —— 重做后荤菜类别被悄悄换掉，
+     跟浮层上写的「主厨正在联网检索『鱼』的其他做法」自相矛盾。 */
+  if (!d.type) { toast('这一天的荤菜信息缺失，无法重做'); return; }
+  const meta = {
+    id: d.id, wk: d.wk, en: d.en,
+    type: d.type, tn: d.tn || TYPE_LABEL[d.type] || d.type
+  };
   busy('正在换一道新菜', '主厨正在联网检索「' + d.tn + '」的其他做法…', 35,
     '会避开原来的菜名，并重新联网核对温度与时间。');
   try {
@@ -4200,6 +4337,9 @@ window.HL = {
   DEFAULT_KEY, API_BASE, LS, IMG_TTL, chatJson, post, generateDay, generateImage,
   IMG_MODEL, IMG_API, imgUrlFor, imgSeed, preloadImage, shopServings,
   imgDisplaySrc, isDataUrl, revealReadyImages,
+  shuffledDayPlan, MEAT_ROTATION, prefetchDayImage, waitPrefetch,
+  imgPreState: () => ({ total: imgPreTotal, done: imgPreDone,
+                        pending: imgQueue.filter((j) => j.prefetch).length }),
   DEFAULT_IMG_KEY, IMG_SF_BASE, IMG_SF_API, IMG_SF_MODELS, IMG_SF_DEFAULT,
   IMG_SF_TTL, IMG_SF_STEPS, imgKey, imgModel, imgSize, imgHash,
   imgCacheKey, imgCacheGet, imgCachePut, sfGenerate, ensureAiImage, shrinkImage, writeImgCache,
