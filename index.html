@@ -604,6 +604,105 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,[t
   .foot{margin-top:44px}
   .foot .wrap{padding-bottom:104px}
 }
+
+/* =========================================================================
+   UX 优化新增样式（2026-10-08）
+   ========================================================================= */
+
+/* ---- 今日高亮：当日卡片加绿色描边 + 淡底，一眼能找到 ---- */
+.day.is-today{border-color:var(--green-l);box-shadow:0 0 0 2px rgba(76,179,124,.26),var(--sh-sm)}
+.day.is-today:hover{box-shadow:0 0 0 2px rgba(76,179,124,.34),var(--sh)}
+.day.is-today .wk{color:var(--green-d);font-weight:600}
+
+/* ---- 一周营养汇总 ---- */
+.weekagg{margin:0 0 18px;padding:16px 18px;background:var(--card);
+  border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--sh-sm)}
+.weekagg .wa-h{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:13px}
+.weekagg .wa-h b{font-size:15px;color:var(--navy)}
+.weekagg .wa-h span{font-size:12.5px;color:var(--ink-3)}
+.wa-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:11px}
+.wa-cell{background:var(--bg);border-radius:var(--r-sm);padding:12px 14px}
+.wa-cell .v{font-size:19px;font-weight:600;color:var(--navy);line-height:1.2}
+.wa-cell .v .u{font-size:11.5px;font-weight:400;color:var(--ink-3);margin-left:2px}
+.wa-cell .l{font-size:12px;color:var(--ink-3);margin-top:3px}
+.wa-cell .d{font-size:11.5px;color:var(--green-d);margin-top:2px}
+
+/* ---- 筛选条 ---- */
+.fbar{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin:0 0 16px;
+  padding:12px 14px;background:var(--card);border:1px solid var(--line);border-radius:var(--r-sm)}
+.fbar .fl{font-size:12.5px;color:var(--ink-3);margin-right:1px}
+.fbar button{padding:6px 13px;border-radius:999px;font-size:12.5px;background:var(--bg);
+  color:var(--ink-2);border:1px solid transparent;transition:background .15s,color .15s}
+.fbar button:hover{background:var(--line)}
+.fbar button.on{background:var(--navy);color:#fff}
+.fbar .fsep{width:1px;height:20px;background:var(--line-2);margin:0 4px}
+.fbar .freset{color:var(--blue);background:none}
+.fnote{margin:14px 0 0;font-size:12.5px;color:var(--ink-3);display:flex;align-items:center;gap:8px}
+.fnote .freset{background:none;border:none;color:var(--blue);font-size:12.5px;
+  text-decoration:underline;cursor:pointer;padding:0}
+
+/* ---- 6 大好处折叠 ---- */
+.bene{border:1px solid var(--line);border-radius:var(--r);background:var(--card);
+  box-shadow:var(--sh-sm);overflow:hidden}
+.bene > summary{display:flex;align-items:center;gap:10px;padding:16px 20px;cursor:pointer;
+  list-style:none;font-size:18px;font-weight:600;color:var(--navy);letter-spacing:-.2px}
+.bene > summary::-webkit-details-marker{display:none}
+.bene > summary:hover{background:var(--bg)}
+.bene > summary .cv{margin-left:auto;color:var(--ink-3);transition:transform .22s;flex:none}
+.bene[open] > summary .cv{transform:rotate(180deg)}
+.bene .bene-in{padding:2px 20px 20px}
+
+/* ---- 免责说明 ---- */
+.disc{margin:0;padding:14px 18px;border-radius:var(--r-sm);background:var(--warn-bg);
+  border:1px solid #EFDCBB;color:#7A4A08;font-size:12.5px;line-height:1.68}
+.disc b{color:#5F3905}
+.legalmask{position:fixed;inset:0;z-index:80;background:rgba(9,29,42,.56);
+  backdrop-filter:blur(3px);display:grid;place-items:center;padding:20px}
+.legalbox{width:min(470px,100%);background:#fff;border-radius:20px;padding:26px;box-shadow:var(--sh-lg)}
+.legalbox h4{margin:0 0 12px;font-size:17px;color:var(--navy);font-weight:600}
+.legalbox p{margin:0 0 11px;font-size:13.5px;color:var(--ink-2);line-height:1.72}
+.legalbox ul{margin:0 0 18px;padding-left:19px;font-size:13px;color:var(--ink-2);line-height:1.78}
+.legalbox .lbtn{width:100%}
+
+/* ---- 设置页：忌口复选框 ---- */
+.avoidgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:6px}
+.avopt{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--ink-2);
+  padding:8px 11px;border:1px solid var(--line);border-radius:var(--r-xs);cursor:pointer}
+.avopt:hover{background:var(--bg)}
+.avopt input{accent-color:var(--green);width:15px;height:15px}
+
+/* ---- 采购清单：复制按钮 ---- */
+.shopacts{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:16px 0 4px}
+.shopacts .shoptip{font-size:12.5px;color:var(--ink-3)}
+
+/* ---- 打印：屏幕上藏起来，@media print 时才显示 ---- */
+#print{display:none}
+@media print{
+  .topbar,.foot,.tabbar,#layers,#toasts,#app{display:none!important}
+  #print{display:block!important}
+  html,body{background:#fff}
+  .pwrap{color:#000;font-size:11.5pt;line-height:1.55}
+  .phead{border-bottom:2px solid #000;padding-bottom:8pt;margin-bottom:10pt}
+  .phead .pt{font-size:19pt;font-weight:700;line-height:1.25}
+  .phead .ps{font-size:11pt;margin-top:3pt}
+  .phead .pm{font-size:9.5pt;color:#333;margin-top:5pt}
+  .pcols{display:flex;gap:20pt;align-items:flex-start}
+  .pcols > div{flex:1;min-width:0}
+  .pcols h4{font-size:12pt;margin:0 0 7pt;border-bottom:1px solid #999;padding-bottom:3pt}
+  .pg{font-size:9.5pt;font-weight:700;margin:7pt 0 2pt;color:#333}
+  .pi{display:flex;justify-content:space-between;gap:8pt;font-size:10.5pt;
+    padding:2pt 0;border-bottom:1px dotted #bbb}
+  .pst{font-size:10.5pt;margin-bottom:6pt;line-height:1.5}
+  .pst .ptt{font-weight:700}
+  .pref{font-size:9pt;color:#444;margin-top:9pt;font-style:italic}
+  .pfoot{margin-top:14pt;padding-top:7pt;border-top:1px solid #999;font-size:8.5pt;color:#555}
+  @page{margin:14mm}
+}
+@media(max-width:900px){ .wa-grid{grid-template-columns:repeat(3,1fr)} }
+@media(max-width:640px){
+  .wa-grid{grid-template-columns:repeat(2,1fr)}
+  .bene > summary{font-size:16px;padding:14px 16px}
+}
 </style>
 </head>
 <body>
@@ -626,6 +725,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,[t
 </header>
 
 <main id="app"></main>
+<div id="print" aria-hidden="true"></div>
 
 <footer class="foot">
   <div class="wrap">
@@ -676,6 +776,11 @@ const THUMBS     = W.thumbs     || {};
    注意它会出现在网页源码里 —— 详见「营养理念 · 设置」里的说明。 */
 const DEFAULT_KEY = "OBF1:CVMBD0xURUsFV1YFWhsOQVZaWx4AVVMFVF1RX0JdRkdPDwksLHsITBgrJ05zZkNbDg==";
 const ZHIPU_BASE  = "https://open.bigmodel.cn/api/paas/v4";
+
+/* 内置的 SiliconFlow Key（AI 配图用）。
+   和智谱 Key 一样，它会明文出现在源码里 —— 打包时会被混淆；
+   访客也可以在「设置」里填自己的 Key 覆盖它。 */
+const DEFAULT_IMG_KEY = "OBF1:Hg5JBQELHhUEARMMBFQHDAoKB05YWFtbCwMRAhsDEQUSHQwCAkwNEh8TAlVBSlFQDxQF";
 
 /* =========================================================================
    部署配置 —— 只有这一段需要改。
@@ -736,7 +841,13 @@ const READONLY = (function () {
    1. 常量与工具
    ========================================================================= */
 const LS = { plan:'hl_plan', menus:'hl_menus', imgs:'hl_imgs', key:'hl_key', model:'hl_model',
-             imgsrc:'hl_imgsrc' };   // imgsrc: 'real' = 真实照片（TheMealDB）｜ 'ai' = AI 生成
+             imgsrc:'hl_imgsrc',        // 'real' = 真实照片（TheMealDB）｜ 'ai' = AI 生成
+             imgkey:'hl_imgkey',        // 用户自己填的 SiliconFlow Key（覆盖内置的）
+             imgmodel:'hl_imgmodel',    // AI 配图用哪个模型
+             imgcache:'hl_imgcache',   // AI 配图缓存（data URL / 链接 + 时间戳）
+             avoid:'hl_avoid',          // 忌口 / 过敏源（数组）
+             kcaltgt:'hl_kcaltgt',      // 每日热量目标
+             seen:'hl_seen' };          // 是否已看过首次免责提示
 const IMG_TTL = 6.5 * 864e5;      // 智谱 CDN 签名有效期 7 天，留半天余量
 
 const CAT_STYLE = {
@@ -916,6 +1027,9 @@ function normalizeDay(raw, meta, plan, sources) {
     title: String((raw && raw.title) || (meta.wk + '地中海午餐')).trim(),
     sub: String((raw && raw.sub) || '').trim(),
     method: String((raw && raw.method) || '烤 · 煮').trim(),
+    /* 烹饪耗时（分钟）。模型没给就是 0 —— 详情页按「没有就不显示」处理，
+       绝不编一个数字出来（老菜单与内置保底菜谱都没有这个字段）。 */
+    time: Math.max(0, Math.round(num(raw && raw.time))),
     tags: (((raw && raw.tags) || []).map((t) => String(t).trim()).filter(Boolean)).slice(0, 4),
     kcal: Math.round(num(raw && raw.kcal)),
     p: r1(num(raw && raw.p)), c: r1(num(raw && raw.c)),
@@ -985,13 +1099,13 @@ function buildSwapPrompt(day, ing, want) {
     '请联网检索后给出替换方案，严格按此 JSON 输出（只输出 JSON）：\n' + PROMPTS.swapSchema;
 }
 
-function buildRegenPrompt(day, oldTitle, feedback, planStyle, avoidTitles, servings) {
+function buildRegenPrompt(day, oldTitle, feedback, planStyle, avoidTitles, servings, avoidText) {
   const fb = feedback ? ('\n【用户反馈】' + feedback) : '';
   const avoid = (avoidTitles && avoidTitles.length) ? avoidTitles.join('、') : '（无）';
   return '用户对原来这道「' + oldTitle + '」不满意，请换一道**完全不同**的菜，但荤菜类别仍然是「' + day.tn + '」。\n\n' +
     '【本周方案】' + planStyle + '\n' +
     '【用餐规模】公司 ' + servings + ' 人，一人一份，克重按一人份给。\n' +
-    '【必须避开的菜名】' + avoid + fb + '\n\n' +
+    '【必须避开的菜名】' + avoid + fb + '\n' + (avoidText || '') + '\n' +
     '请先联网检索真实做法，再输出。严格按以下 JSON 结构输出（只输出 JSON，不要 markdown 代码块）：\n' +
     PROMPTS.daySchema;
 }
@@ -1034,6 +1148,11 @@ function deobfKey(v) {
 function apiKey() {
   const def = deobfKey(DEFAULT_KEY);
   try { return localStorage.getItem(LS.key) || def; } catch (e) { return def; }
+}
+/* AI 配图用的 SiliconFlow Key：用户填的优先，其次才是页面内置的（打包时混淆） */
+function imgKey() {
+  const def = deobfKey(DEFAULT_IMG_KEY);
+  try { return localStorage.getItem(LS.imgkey) || def; } catch (e) { return def; }
 }
 /* 默认主厨模型：glm-4.5-air。
    实测（2026-09-28）它比 glm-4.7 快 3 倍（20.5s vs 60.2s）、并发 ≥8（4.7 只有 2），
@@ -1245,26 +1364,66 @@ async function generateDay(meta, plan, avoid, extra) {
   return day;
 }
 
-/* 图片模型：
-   - 直连模式用 Pollinations 的 FLUX —— 免费、**不需要 API Key**、CORS 完全放行
-     （实测 `Access-Control-Allow-Origin: *`，连 `Origin: null` 的 file:// 也能用）。
-   - 后端模式仍由服务端决定，前端只负责显示。
-   注意它和 cogview 的调用方式完全不同：cogview 是「POST 一下、返回一个带签名的链接」，
-   而 Pollinations 是 **URL 本身就是图片** —— 所以这里省掉了整条
-   「下载落盘 / 签名 7 天过期 / 定时清理」的链路。 */
-const IMG_MODEL = USE_BACKEND ? (MODELS.image || 'cogview-3-flash') : 'z-image-turbo';
-const IMG_API = 'https://image.pollinations.ai/prompt/';
+/* =========================================================================
+   AI 配图（直连模式）· SiliconFlow（硅基流动）
+
+   为什么换掉 Pollinations：
+   - 它曾经提供 FLUX，但 2026-10 实测 `https://image.pollinations.ai/models`
+     只返回 `["sana"]`，而且 **`model` 参数被完全忽略** ——
+     flux / turbo / z-image-turbo 三个名字返回的文件 **md5 一模一样**，
+     也就是说页面上写的模型名是假的，根本拿不到想要的画质。
+
+   为什么用 SiliconFlow：
+   - 浏览器可直连（实测预检 `Access-Control-Allow-Origin: *`、`Allow-Headers: *`）；
+   - 出图质量明显更好，免费额度按天计；
+   - 返回的图片**支持跨域读取**（ACAO 回显 Origin），所以能把图压成小图
+     长期存在浏览器里，不必反复生成。
+
+   ⚠️ **FLUX 已经在硅基流动下架**：2026-10 实测
+     `black-forest-labs/FLUX.1-schnell` → `{"code":30003,"message":"Model disabled."}`。
+     现在可用的是下面 IMG_SF_MODELS 里的四个，默认 Z-Image-Turbo。
+
+   ⚠️ 它**不是**「URL 即图片」：要 POST 一次，拿回一个**会过期**的链接
+     （Z-Image / Qwen 约 24 小时，Kolors 只有 1 小时）。所以必须自己缓存 ——
+     见 imgCache：能取到字节就压成 data URL 长期留着，
+     取不到就退化成「只存链接 + 过期后重新生成」。
+   ========================================================================= */
+const IMG_SF_BASE = 'https://api.siliconflow.cn/v1';
+const IMG_SF_API = IMG_SF_BASE + '/images/generations';
+/* id 必须与硅基流动「模型广场 → 生图」里的一致，写错会返回 Model disabled */
+const IMG_SF_MODELS = [
+  { id: 'Tongyi-MAI/Z-Image-Turbo', n: 'Z-Image-Turbo · 快、稳（默认）',  sz: '1024x1024' },
+  { id: 'Tongyi-MAI/Z-Image',       n: 'Z-Image · 更细腻',                sz: '1024x1024' },
+  { id: 'Qwen/Qwen-Image',          n: 'Qwen-Image · 细节最好，稍慢',      sz: '1328x1328' },
+  { id: 'Kwai-Kolors/Kolors',       n: 'Kolors · 风格化，链接只留 1 小时', sz: '1024x1024' }
+];
+const IMG_SF_DEFAULT = 'Tongyi-MAI/Z-Image-Turbo';
+const IMG_SF_STEPS = 20;
+/* 链接有效期最短的是 Kolors（1 小时），统一按 50 分钟算，留足余量 */
+const IMG_SF_TTL = 50 * 60 * 1000;
+const IMG_API = IMG_SF_API;                 // 兼容旧引用
+const IMG_MODEL = USE_BACKEND ? (MODELS.image || 'cogview-3-flash') : IMG_SF_DEFAULT;
+
+/* 当前用哪个图像模型（设置里可换）。后端模式由服务端决定，前端不参与。 */
+function imgModel() {
+  if (USE_BACKEND) return MODELS.image || 'cogview-3-flash';
+  try { return localStorage.getItem(LS.imgmodel) || IMG_SF_DEFAULT; }
+  catch (e) { return IMG_SF_DEFAULT; }
+}
+/* 请求尺寸：每种模型推荐的尺寸不一样（Qwen-Image 用 1328x1328 才不糊） */
+function imgSize() {
+  const m = IMG_SF_MODELS.filter((x) => x.id === imgModel())[0];
+  return (m && m.sz) || '1024x1024';
+}
 
 /* 同一道菜必须稳定出同一张图，否则每次刷新都换一张脸。
    所以 seed 由菜名 + 做法派生（FNV-1a），不用随机数。 */
 function imgSeed(day) {
-  /* 三种来源，优先级从高到低：
-     ① 用户点过「换一张配图」→ 用他换的种子
-     ② 菜单自带 img_seed —— **每次生成菜单时都会重新随机**，
+  /* 两种来源，优先级从高到低：
+     ① 菜单自带 img_seed —— **每次生成菜单时都会重新随机**，
         保证「换了菜单就换图」，而不是菜名没变就永远是同一张
-     ③ 都没有（内置保底菜单）→ 由菜名 + 做法派生，保持稳定 */
-  const ov = state.imgSeeds && state.imgSeeds[day.id];
-  if (ov) return ov;
+        （新种子 → 缓存键变了 → 缓存未命中 → 重新生成）；
+     ② 都没有（内置保底菜单）→ 由菜名 + 做法派生，保持稳定。 */
   if (day.img_seed) return day.img_seed;
   const s = (day.title || '') + '|' + (day.method || '');
   let h = 2166136261;
@@ -1275,18 +1434,128 @@ function imgSeed(day) {
   return h % 1000000;
 }
 
-/* 直连模式的图片地址：确定性推导，可反复使用，永不失效 */
+/* 直连模式的配图地址：命中缓存就返回它，否则返回空串 ——
+   先显示本地占位图，等串行队列真正生成好再换上去。 */
 function imgUrlFor(day) {
-  const wh = String(MODELS.imageSize || '1024x1024').split('x');
-  return IMG_API + encodeURIComponent(imgPrompt(day)) +
-    '?model=' + IMG_MODEL +
-    '&width=' + (parseInt(wh[0], 10) || 1024) +
-    '&height=' + (parseInt(wh[1], 10) || 1024) +
-    '&nologo=true&seed=' + imgSeed(day);
+  return imgCacheGet(day);
 }
 
-/* 「生成」= 用 <img> 预加载。Pollinations 是同步吐图的，
-   加载成功就说明图好了，顺便把它的 CDN 缓存预热（CDN 缓存一年）。 */
+/* ---- AI 配图的本地缓存 ----
+   键 = 模型 + 尺寸 + seed + 提示词 的 FNV-1a 哈希 —— 同一道菜只会真正调一次接口。
+   值 = {u: 图片链接, d: 压好的小图 data URL（可选）, t: 生成时间}。
+   读取优先级：data URL（永不过期）> 链接（TTL 内）> 没有（重新生成）。 */
+function imgHash(s) {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+  return h.toString(16);
+}
+function imgCacheKey(day) {
+  return imgHash(imgModel() + '|' + imgSize() + '|' + imgSeed(day) + '|' + imgPrompt(day));
+}
+function imgCacheGet(day) {
+  const e = state.imgCache[imgCacheKey(day)];
+  if (!e) return '';
+  if (e.d) return e.d;                                     // 压好的小图，永不过期
+  if (e.u && Date.now() - (e.t || 0) < IMG_SF_TTL) return e.u;
+  return '';                                               // 链接过期了，当作没有
+}
+function imgCachePut(day, url, dataUrl) {
+  if (!url && !dataUrl) return;
+  const k = imgCacheKey(day);
+  /* 上限 30 条：data URL 一条几十 KB，不设上限会把 localStorage 撑爆 */
+  const keys = Object.keys(state.imgCache);
+  if (keys.length >= 30 && !state.imgCache[k]) {
+    keys.sort((a, b) => (state.imgCache[a].t || 0) - (state.imgCache[b].t || 0));
+    for (let i = 0; i < 5; i++) delete state.imgCache[keys[i]];
+  }
+  state.imgCache[k] = { u: url || '', d: dataUrl || '', t: Date.now() };
+  writeImgCache();
+}
+
+/* 把生成出来的图取回本地并压成 JPEG data URL。
+   s3.siliconflow.cn 实测允许跨域读取，所以能 drawImage + toDataURL；
+   任何一步失败（CORS、画布被污染、浏览器不支持）都返回空串，
+   外层会退化成「只存链接」。 */
+function shrinkImage(url) {
+  return new Promise((resolve) => {
+    const im = new Image();
+    im.crossOrigin = 'anonymous';
+    const timer = setTimeout(() => { im.src = ''; resolve(''); }, 20000);
+    im.onerror = () => { clearTimeout(timer); resolve(''); };
+    im.onload = () => {
+      clearTimeout(timer);
+      try {
+        const max = 640;
+        const sc = Math.min(1, max / Math.max(im.naturalWidth, im.naturalHeight));
+        const w = Math.max(1, Math.round(im.naturalWidth * sc));
+        const h = Math.max(1, Math.round(im.naturalHeight * sc));
+        const cv = document.createElement('canvas');
+        cv.width = w; cv.height = h;
+        const ctx = cv.getContext('2d');
+        if (!ctx) return resolve('');
+        ctx.drawImage(im, 0, 0, w, h);
+        const d = cv.toDataURL('image/jpeg', 0.82);
+        resolve(d && d.length > 64 ? d : '');
+      } catch (e) { resolve(''); }
+    };
+    im.src = url;
+  });
+}
+
+/* 调 SiliconFlow 生成一张图。
+   ⚠️ 返回的链接**会过期**，所以顺手写进本地缓存；能压就再存一份 data URL。 */
+async function sfGenerate(day) {
+  const key = imgKey();
+  if (!key) throw new ApiError('没有 SiliconFlow API Key —— 请在「设置 → AI 配图」里填一个。');
+  const body = {
+    model: imgModel(),
+    prompt: imgPrompt(day),
+    image_size: imgSize(),
+    num_inference_steps: IMG_SF_STEPS,
+    seed: imgSeed(day)
+  };
+  let res;
+  try {
+    res = await fetch(IMG_SF_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
+      body: JSON.stringify(body)
+    });
+  } catch (e) {
+    throw new ApiError('连不上 SiliconFlow（网络或跨域被拦），请稍后重试。');
+  }
+  let data = null;
+  try { data = await res.json(); } catch (e) { /* 有的错误直接返回纯文本，忽略 */ }
+  const code = data && data.code;
+  if (!res.ok || (code && code !== 200)) {
+    const msg = (data && data.message) || '';
+    if (res.status === 429) throw new ApiError('SiliconFlow 免费额度用满或触发限流，请稍后再试。');
+    if (code === 30014) throw new ApiError('SiliconFlow Key 无效，请在「设置」里更新。');
+    if (code === 30003) throw new ApiError('这个图像模型已下架，请在「设置」里换一个。');
+    if (res.status === 503 || code === 50505) throw new ApiError('SiliconFlow 模型繁忙，请稍后重试。');
+    throw new ApiError('配图生成失败（' + res.status + '）：' + (msg || '未知错误'));
+  }
+  const url = (data && data.images && data.images[0] && data.images[0].url) || '';
+  if (!url) throw new ApiError('SiliconFlow 没有返回图片地址。');
+  const dataUrl = await shrinkImage(url);
+  imgCachePut(day, url, dataUrl);
+  return dataUrl || url;
+}
+
+/* 取这张图：命中缓存直接用，否则现生成一次。
+   同一个键的并发调用复用同一个 Promise，避免重复烧额度。 */
+const imgInflight = {};
+async function ensureAiImage(day) {
+  const hit = imgCacheGet(day);
+  if (hit) return hit;
+  const k = imgCacheKey(day);
+  if (imgInflight[k]) return imgInflight[k];
+  const p = sfGenerate(day);
+  imgInflight[k] = p;
+  try { return await p; } finally { delete imgInflight[k]; }
+}
+
+/* 「生成」= 用 <img> 预加载。 */
 function preloadImage(url, timeoutMs) {
   return new Promise((resolve, reject) => {
     const im = new Image();
@@ -1301,7 +1570,7 @@ function preloadImage(url, timeoutMs) {
 }
 
 async function generateImage(day) {
-  const url = imgUrlFor(day);
+  const url = await ensureAiImage(day);
   await preloadImage(url);
   return url;
 }
@@ -1309,7 +1578,7 @@ async function generateImage(day) {
 /* ---------------------------------------------------------------------------
    图片串行队列
 
-   Pollinations 的并发限制比想象中严：实测**并发 4 个请求有 3 个直接 429**，
+   SiliconFlow 的并发限制比想象中严：实测**并发 4 个请求有 3 个直接 429**，
    只有串行（一次一个）才稳。所以图片不能交给浏览器并发去拉 ——
    渲染时把 AI 图地址放在 data-src 上，渲染完统一入队、**一张一张地加载**。
 
@@ -1329,7 +1598,12 @@ function queueImages() {
   for (let i = 0; i < list.length; i++) {
     const el = list[i];
     el.setAttribute('data-queued', '1');
-    imgQueue.push({ el: el, url: el.getAttribute('data-src') });
+    imgQueue.push({
+      el: el,
+      url: el.getAttribute('data-src'),
+      /* AI 配图的任务一开始没有 url（要现生成），得知道是哪一天的菜 */
+      dayId: el.getAttribute('data-day')
+    });
   }
   pumpImages();
 }
@@ -1349,11 +1623,22 @@ async function pumpImages() {
 let imgLoading = 0;
 let imgMaxLoading = 0;
 
-function loadOneImage(job) {
-  return new Promise((resolve) => {
-    /* 元素已经被下一次渲染换掉、或者地址是空的 —— 直接跳过，
-       否则会占着队列白等 120 秒超时。 */
-    if (!job.el.isConnected || !job.url) return resolve();
+async function loadOneImage(job) {
+  /* 元素已经被下一次渲染换掉 —— 直接跳过，否则会占着队列白等 120 秒超时。 */
+  if (!job.el.isConnected) return;
+
+  let url = job.url;
+  /* 直连模式 · AI 配图：地址是「现生成」的（SiliconFlow 要先 POST 一次），
+     所以队列里的任务一开始没有 url —— 在这里生成，成功后再加载。
+     生成失败就保持本地占位图，绝不出现破图。 */
+  if (!url && !USE_BACKEND && state.imgSrc === 'ai' && job.dayId) {
+    const d = day(state.plan, job.dayId);
+    if (!d) return;
+    try { url = await ensureAiImage(d); } catch (e) { url = ''; }
+  }
+  if (!url || !job.el.isConnected) return;
+
+  await new Promise((resolve) => {
     let tries = 0;
     imgLoading++;
     if (imgLoading > imgMaxLoading) imgMaxLoading = imgLoading;
@@ -1365,7 +1650,7 @@ function loadOneImage(job) {
         done = true;
         imgLoading--;
         /* 成功就换成 AI 图；失败保持本地占位图，绝不出现破图 */
-        if (ok && job.el.isConnected) job.el.src = job.url;
+        if (ok && job.el.isConnected) job.el.src = url;
         resolve();
       };
       const timer = setTimeout(() => { im.src = ''; finish(false); }, 120000);
@@ -1378,7 +1663,7 @@ function loadOneImage(job) {
         if (tries < IMG_TRIES) setTimeout(attempt, 3000 * tries);
         else finish(false);
       };
-      im.src = job.url;
+      im.src = url;
     };
     attempt();
   });
@@ -1841,8 +2126,11 @@ const state = {
   dayId: null,
   menus: {},        // plan -> {plan,name,desc,servings,days:[...]}
   imgs: {},         // 仅后端模式：`${plan}:${dayId}` -> {url, ts}（签名链接要判过期）
-  imgSeeds: {},     // 仅直连模式：dayId -> seed（点「换一张配图」时写入，覆盖默认 seed）
-  /* 配图来源：'real' = TheMealDB 的真实菜品照片（默认）｜ 'ai' = Pollinations 生成。
+  /* 仅直连模式：AI 配图的本地缓存，键见 imgCacheKey()。
+     值是 {u: 图片链接, d: 压好的 data URL（可选）, t: 生成时间} ——
+     链接会过期，data URL 不会，所以能压就压。 */
+  imgCache: {},
+  /* 配图来源：'real' = TheMealDB 的真实菜品照片（默认）｜ 'ai' = SiliconFlow 生成。
      真实照片免费、无需 Key，但**只是同食材的相近菜品照片，不是这道菜的实拍** ——
      界面上必须写清楚，不能让用户误以为就是这道菜的照片。 */
   imgSrc: 'real',
@@ -1854,7 +2142,17 @@ const state = {
   shopDays: null,
   /* 采购清单按几人份算：null = 跟随菜单里存的份数（通常是 16）；
      非空则是用户在采购页临时调的 —— 只影响采购量，不改菜谱本身。 */
-  shopServ: null
+  shopServ: null,
+  /* 忌口 / 过敏源，值见 AVOID_OPTS。影响①生成提示词 ②首页筛选 */
+  avoid: [],
+  /* 每日热量目标，'all' 或 KCAL_BANDS 里的 k */
+  kcalTarget: 'all',
+  /* 首页筛选条（纯展示层，不改菜谱本身） */
+  fMeat: 'all',
+  fKcal: 'all',
+  hideAvoid: false,
+  /* 首次免责提示是否已读 */
+  seen: true
 };
 let toastTimer = null;
 
@@ -1863,11 +2161,31 @@ function readLS() {
     const p = localStorage.getItem(LS.plan); if (p && PLANS[p]) state.plan = p;
     const m = JSON.parse(localStorage.getItem(LS.menus) || '{}'); if (m && typeof m === 'object') state.menus = m;
     const i = JSON.parse(localStorage.getItem(LS.imgs) || '{}'); if (i && typeof i === 'object') state.imgs = i;
+    const av = JSON.parse(localStorage.getItem(LS.avoid) || '[]');
+    if (Array.isArray(av)) state.avoid = av.filter((x) => AVOID_LABEL[x]);
+    const kt = localStorage.getItem(LS.kcaltgt);
+    if (kt && KCAL_BANDS.some((b) => b.k === kt)) state.kcalTarget = kt;
+    state.seen = localStorage.getItem(LS.seen) === '1';
     const s = localStorage.getItem(LS.imgsrc); if (s === 'ai' || s === 'real') state.imgSrc = s;
+    const c = JSON.parse(localStorage.getItem(LS.imgcache) || '{}');
+    if (c && typeof c === 'object') state.imgCache = c;
   } catch (e) { /* 隐私模式下 localStorage 可能不可用，忽略即可 */ }
 }
 function writeMenus() { try { localStorage.setItem(LS.menus, JSON.stringify(state.menus)); } catch (e) {} }
 function writeImgs()  { try { localStorage.setItem(LS.imgs,  JSON.stringify(state.imgs));  } catch (e) {} }
+/* 配图缓存可能很大（data URL 一条几十 KB），单独写、单独兜底 */
+function writeImgCache() {
+  try { localStorage.setItem(LS.imgcache, JSON.stringify(state.imgCache)); }
+  catch (e) {
+    /* 多半是 localStorage 写满了 —— 把最旧的离线副本丢掉再存一次，
+       链接还留着，不至于整个功能挂掉。 */
+    const keys = Object.keys(state.imgCache)
+      .sort((a, b) => (state.imgCache[a].t || 0) - (state.imgCache[b].t || 0));
+    keys.slice(0, Math.max(1, Math.ceil(keys.length / 2)))
+      .forEach((k) => { state.imgCache[k].d = ''; });
+    try { localStorage.setItem(LS.imgcache, JSON.stringify(state.imgCache)); } catch (e2) {}
+  }
+}
 function writePlan()  { try { localStorage.setItem(LS.plan,  state.plan); } catch (e) {} }
 
 /* 当前方案的数据：优先生成的，没有就用内置离线保底 */
@@ -1893,10 +2211,9 @@ function imgUrl(plan, dayId) {
        避免白生成一张马上要被替换掉的 AI 图；查完没命中才落到下面的 AI 分支。 */
     if (!d.real) return '';
   }
-  /* 直连模式 · AI 图：图片地址由「菜名 + 做法」确定性推导 ——
-     也就是说**生成菜单的那一刻，配图就已经确定了**，不需要用户再点一次
-     「生成配图」，也不需要缓存。seed 由菜名派生，同一道菜永远同一张图；
-     点过「换一张配图」就用他换的种子。 */
+  /* 直连模式 · AI 图：**生成菜单的那一刻配图就已经在做了**，不需要用户再点。
+     地址来自本地缓存（imgCache）：有就直接显示，没有就先占位，
+     由串行队列去 SiliconFlow 现生成一张再换上来。 */
   if (!USE_BACKEND) return imgUrlFor(d);
   /* 后端模式：菜单里自带 img_key，配图已随镜像烘焙在容器里，
      直接拼地址即可 —— 不走签名、不会过期、也不花钱。 */
@@ -1953,7 +2270,8 @@ function renderHome() {
   const planKeys = Object.keys(PLANS).length ? Object.keys(PLANS) : Object.keys(FALLBACK);
   const days = m ? (m.days || []) : [];
   const hi = days[Math.min(todayIdx(), Math.max(days.length - 1, 0))] || null;
-  const hiImg = hi ? (imgUrl(state.plan, hi.id) || thumbUrl(hi)) : '';
+  /* hiImg 只表示 AI 图地址；没生成好就是空串（本地占位图先顶上） */
+  const hiImg = hi ? imgUrl(state.plan, hi.id) : '';
   const fb = isFallback(state.plan);
 
   let html = '';
@@ -1985,13 +2303,14 @@ function renderHome() {
   html += '<div class="cta">';
   html += '<button class="btn" data-act="genweek"' + (state.busy ? ' disabled' : '') + '>' +
     (state.busy ? '<span class="spin"></span> 正在生成…' : (days.length ? '重新生成本周菜单' : '生成本周菜单')) + '</button>';
+  html += '<button class="btn ghost" data-act="today">今天吃什么</button>';
   html += '<button class="btn ghost" data-act="goto" data-arg="about">了解营养理念</button>';
   html += '</div>';
   html += '</div>';
 
   html += '<div class="heroart"><div class="frame">';
-  if (hiImg) html += '<img src="' + esc(hi ? thumbUrl(hi) : '') + '" data-src="' + esc(hiImg) +
-    '" alt="' + esc(hi ? hi.title : '') + '">';
+  if (hi && thumbUrl(hi)) html += '<img src="' + esc(thumbUrl(hi)) + '" data-src="' + esc(hiImg) +
+    '" data-day="' + esc(hi.id) + '" alt="' + esc(hi.title) + '">';
   else html += phHTML(hi ? hi.type : 'veg');
   html += '</div>';
   if (hi) html += '<div class="bubble">' + esc(hi.title) +
@@ -2004,10 +2323,13 @@ function renderHome() {
   }
   html += '</div></div></section>';
 
-  /* ---- 6 大好处 ---- */
+  /* ---- 6 大好处（可折叠：默认展开，点标题收起）---- */
   html += '<section class="sec"><div class="wrap">';
-  html += '<div class="sec-head"><h2>地中海饮食的 6 大好处</h2></div>';
-  html += '<div class="benefits">' + [
+  html += '<details class="bene" open><summary><span>地中海饮食的 6 大好处</span>' +
+    '<svg class="cv" width="16" height="16" viewBox="0 0 24 24" fill="none" ' +
+    'stroke="currentColor" stroke-width="2" stroke-linecap="round" ' +
+    'stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></summary>' +
+    '<div class="bene-in"><div class="benefits">' + [
     ['保护心血管', '橄榄油 · 深海鱼', 'M12 21s-7.5-4.7-7.5-10A4.5 4.5 0 0 1 12 8.2 4.5 4.5 0 0 1 19.5 11c0 5.3-7.5 10-7.5 10z'],
     ['提升大脑功能', '优质脂肪 · 护神经', 'M9 4a4 4 0 0 0-4 4 3.4 3.4 0 0 0-1 6.6V17a3 3 0 0 0 3 3h1V4zM15 4a4 4 0 0 1 4 4 3.4 3.4 0 0 1 1 6.6V17a3 3 0 0 1-3 3h-1V4z'],
     ['增强免疫力', '多色蔬果 · 抗氧化', 'M12 3l7 3v5.5c0 4.4-3 7.6-7 9.5-4-1.9-7-5.1-7-9.5V6z'],
@@ -2018,7 +2340,7 @@ function renderHome() {
     '<div class="benefit"><div class="ic"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" ' +
     'stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="' + d + '"/></svg></div>' +
     '<div class="t">' + t + '</div><div class="d">' + s + '</div></div>').join('') + '</div>';
-  html += '</div></section>';
+  html += '</div></details></div></section>';
 
   /* ---- 本周菜单 ---- */
   html += '<section class="sec"><div class="wrap">';
@@ -2034,6 +2356,11 @@ function renderHome() {
     html += '<div class="planbar"><span class="meta">' + (fb ? '内置保底菜谱' : '已由 AI 联网生成') + '</span></div>';
   }
 
+  if (days.length) {
+    html += weekAggHTML(days);
+    html += filterBarHTML(days);
+  }
+
   if (!days.length) {
     html += '<div class="empty"><svg width="46" height="46" viewBox="0 0 24 24" fill="none" ' +
       'stroke="#B7CBD8" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">' +
@@ -2041,9 +2368,29 @@ function renderHome() {
       '<div class="et">还没有菜谱</div><div class="ed">点「生成本周菜单」，AI 主厨会联网检索真实做法，为周一到周五各设计一份午餐。</div>' +
       '<button class="btn" data-act="genweek">开始生成</button></div>';
   } else {
-    html += '<div class="days">' + days.map((d, i) => dayCard(d, i)).join('') + '</div>';
+    const shown = filterDays(days);
+    if (!shown.length) {
+      html += '<div class="empty"><div class="et">筛选后没有符合条件的午餐</div>' +
+        '<div class="ed">当前条件把 ' + days.length + ' 天全排除了，换个条件或重置。</div>' +
+        '<button class="btn" data-act="freset">重置筛选</button></div>';
+    } else {
+      /* 传原始下标：isToday 是按「第几天」判的，不能传筛选后的序号 */
+      html += '<div class="days">' + shown.map((d) => dayCard(d, days.indexOf(d))).join('') + '</div>';
+      if (shown.length < days.length) {
+        html += '<div class="fnote">已筛选：显示 ' + shown.length + ' / ' + days.length +
+          ' 天，隐藏了 ' + (days.length - shown.length) + ' 天。' +
+          '<button class="freset" data-act="freset">重置筛选</button></div>';
+      }
+    }
   }
   html += '</div></section>';
+
+  /* 常驻免责说明：首次还有一次弹窗，见 legalHTML() */
+  html += '<section class="sec" style="padding-top:0"><div class="wrap"><div class="disc">' +
+    '<b>AI 生成菜谱仅供参考，不构成医疗或营养建议。</b>' +
+    '菜谱由大模型联网检索公开做法后生成，克重与营养为估算值；' +
+    '如有慢性病、孕期哺乳期或食物过敏，请先咨询医生或注册营养师再照做。</div>' +
+    '</div></section>';
 
   $('#app').innerHTML = html;
 }
@@ -2055,11 +2402,15 @@ function metric(v, u, l) {
 }
 
 function dayCard(d, i) {
-  const src = imgUrl(state.plan, d.id) || thumbUrl(d);
+  /* src 只表示「AI 图地址」；还没生成好就是空串 —— 这时先挂本地占位图，
+     由串行队列按 data-day 去 SiliconFlow 现生成一张再换上来。
+     ⚠️ 千万别写成 `imgUrl(...) || thumbUrl(d)`：那样 data-src 永远非空，
+     队列会以为「已经有地址了」而只加载本地占位图，配图就永远不更新。 */
+  const src = imgUrl(state.plan, d.id);
   const isToday = i === todayIdx();
-  return '<button class="day" data-act="open" data-arg="' + d.id + '">' +
+  return '<button class="day' + (isToday ? ' is-today' : '') +'" data-act="open" data-arg="' + d.id + '">' +
     '<div class="thumb">' +
-      (src ? '<img src="' + esc(thumbUrl(d)) + '" data-src="' + esc(src) + '" alt="" loading="lazy">' : phHTML(d.type, 56)) +
+      (thumbUrl(d) ? '<img src="' + esc(thumbUrl(d)) + '" data-src="' + esc(src) + '" data-day="' + esc(d.id) + '" alt="" loading="lazy">' : phHTML(d.type, 56)) +
       '<span class="tag">' + esc(d.tn) + '</span>' +
       (isToday ? '<span class="today">今天</span>' : '') +
     '</div>' +
@@ -2080,7 +2431,8 @@ function renderDay() {
       '<button class="btn" data-act="goto" data-arg="home">返回首页</button></div></div>';
     return;
   }
-  const src = imgUrl(state.plan, d.id) || thumbUrl(d);
+  /* 同 dayCard：src 只表示 AI 图地址，空串时用本地占位图顶上 */
+  const src = imgUrl(state.plan, d.id);
   const serv = d.servings || COMPANY;
   const baseTotal = num(d.total_g) || (d.ing || []).reduce((s, i) => s + num(i.g), 0);
   const aiImg = !!imgUrl(state.plan, d.id);
@@ -2101,7 +2453,7 @@ function renderDay() {
 
   /* 左：图 + 营养 */
   html += '<div>';
-  html += '<div class="dhero">' + (src ? '<img src="' + esc(thumbUrl(d)) + '" data-src="' + esc(src) + '" alt="' + esc(d.title) + '">' : phHTML(d.type, 92)) +
+  html += '<div class="dhero">' + (thumbUrl(d) ? '<img src="' + esc(thumbUrl(d)) + '" data-src="' + esc(src) + '" data-day="' + esc(d.id) + '" alt="' + esc(d.title) + '">' : phHTML(d.type, 92)) +
     '<span class="badge">' + esc(d.tn) + '</span>' +
     (real ? '<span class="ai realph">真实照片</span>' : (aiImg ? '<span class="ai">AI 生成配图</span>' : '')) + '</div>';
   /* 真实照片必须写清来源与「不是这道菜的实拍」—— 这是诚信问题，
@@ -2115,15 +2467,14 @@ function renderDay() {
        与其放一张做法不对的图，不如退回 AI 图并把原因说清楚。 */
     html += '<div class="imgcred">这一天在 <b>TheMealDB</b> 里没找到「' +
       esc(TECH_CN[dayTechnique(d)] || '零油烟') + '」做法的「' + esc(proteinName(d)) +
-      '」，已自动改用 AI 配图（可在「设置 → 配图来源」切换，或点下面按钮换一张）。</div>';
+      '」，已自动改用 AI 配图（可在「设置 → 配图来源」切回真实照片）。</div>';
   }
-  /* 直连模式下配图随菜单自动出来，所以这里不再是「生成」而是「换一张」 */
-  html += '<div class="acts">' +
-    '<button class="btn ghost sm" data-act="image" data-arg="' + d.id + '"' +
-    (state.busy ? ' disabled' : '') + '>' +
-    (USE_BACKEND ? (aiImg ? '重新生成配图' : '生成这道菜的配图')
-      : (real && (d.real.list || []).length > 1 ? '换一张真实照片' : '换一张配图')) + '</button>' +
-    '</div>';
+  /* 配图随菜单自动生成，所以这里**不再有「生成 / 换一张 AI 配图」按钮** ——
+     只有「真实照片」命中多个同做法候选时，才留一个翻页按钮。 */
+  if (!USE_BACKEND && real && (d.real.list || []).length > 1) {
+    html += '<div class="acts"><button class="btn ghost sm" data-act="image" data-arg="' + d.id + '"' +
+      (state.busy ? ' disabled' : '') + '>换一张真实照片</button></div>';
+  }
   html += '<div class="secttl"><h3>本餐份数换算</h3></div>';
   html += '<div class="card serve">' +
     '<span class="lab">本餐份数</span>' +
@@ -2144,6 +2495,8 @@ function renderDay() {
   html += '<div class="dhead">';
   html += '<div class="wkrow"><span class="pill navy">' + esc(d.wk) + ' · ' + esc(d.en) + '</span>' +
     '<span class="pill blue">' + esc(d.method || '') + '</span>' +
+    /* time 是后加的字段：老菜单（含内置保底）没有就不显示，绝不编一个数字 */
+    (d.time ? '<span class="pill blue">约 ' + esc(d.time) + ' 分钟</span>' : '') +
     (isFallback(state.plan) ? '<span class="pill green">内置保底菜谱</span>' : '') + '</div>';
   html += '<h1>' + esc(d.title) + '</h1>';
   if (d.sub) html += '<div class="dsub">' + esc(d.sub) + '</div>';
@@ -2243,8 +2596,15 @@ function renderDay() {
     }).join('') + '</div>';
   }
 
+  /* 免责说明贴在做法后面：用户看完菜谱正好看到，比塞在页脚有用 */
+  html += '<div class="disc" style="margin-top:20px">' +
+    '<b>AI 生成菜谱仅供参考，不构成医疗或营养建议。</b>' +
+    '温度与时间来自联网检索的公开菜谱，请按自家灶具与食材实际状态调整；' +
+    '有食物过敏史请务必自行核对配料。</div>';
+
   html += '<div class="acts">' +
     '<button class="btn navy" data-act="regen" data-arg="' + d.id + '">这道不满意？让 AI 换一道（联网重做）</button>' +
+    '<button class="btn ghost" data-act="print" data-arg="' + d.id + '">打印菜谱</button>' +
     '<button class="btn ghost" data-act="shop">查看采购清单</button></div>';
 
   html += '</div>';
@@ -2347,6 +2707,8 @@ function renderShop() {
   html += '<div class="shopnote">已按 <b>' + serv + ' 人份</b> 汇总 <b>' + esc(label) +
     '</b> 的食材，合计约 <b>' + (r1(grand / 1000)).toFixed(1) + ' kg</b>。' +
     '同类食材在不同天出现时会自动合并；调味料按一人份累计，实际调味可按口味增减。</div>';
+  html += '<div class="shopacts"><button class="btn navy" data-act="copyshop">复制购物清单</button>' +
+    '<span class="shoptip">复制成纯文本，直接粘到微信、备忘录或买菜 App 里。</span></div>';
 
   CAT_ORDER.forEach((c) => {
     const list = items.filter((i) => i.c === c).sort((a, b) => b.per - a.per);
@@ -2414,6 +2776,7 @@ function renderAbout() {
 
 function renderSetup() {
   const own = (function () { try { return localStorage.getItem(LS.key) || ''; } catch (e) { return ''; } })();
+  const ownImgKey = (function () { try { return localStorage.getItem(LS.imgkey) || ''; } catch (e) { return ''; } })();
   const model = chatModel();
   let html = '<div class="wrap"><section class="sec" style="margin-top:26px">';
   html += '<div class="sec-head"><h2>设置</h2><span class="sub">可选 · 不改也能正常使用</span></div>';
@@ -2455,10 +2818,20 @@ function renderSetup() {
       '</select>' +
       '<div class="hint">只有 glm-4.7 是旗舰级；<b>glm-4.7-flash 永久免费</b>，公开分享时用它最划算。' +
       '以上都支持联网检索。换模型只影响之后新生成的菜谱，已生成的不会重算。</div></div>' +
+      (USE_BACKEND ? '' :
+        '<div class="setrow"><label for="ik">SiliconFlow API Key（AI 配图用）</label>' +
+        '<input id="ik" type="password" placeholder="格式：sk-xxxxxxxx…" value="' + esc(ownImgKey) + '">' +
+        '<div class="hint">保存在浏览器本地（localStorage），不会上传到任何服务器。' +
+        '留空则使用页面内置的 Key。获取地址：硅基流动 cloud.siliconflow.cn → API 密钥。</div></div>' +
+        '<div class="setrow"><label for="im">AI 配图模型</label>' +
+        '<select id="im">' + IMG_SF_MODELS.map((m) => opt(m.id, imgModel(), m.n)).join('') + '</select>' +
+        '<div class="hint">⚠️ <b>FLUX 已在硅基流动下架</b>（实测返回 Model disabled），' +
+        '所以默认用 <b>Z-Image-Turbo</b>：快、稳、食物摄影效果好。' +
+        'Qwen-Image 细节最好，但更慢、图也更大。换模型后已生成的图会重新画。</div></div>') +
       '<div class="setrow"><label for="is">配图来源</label>' +
       '<select id="is">' +
         opt('real', state.imgSrc, '真实照片 · TheMealDB（免费、无需 Key、国内可直连）') +
-        opt('ai',   state.imgSrc, 'AI 生成配图 · ' + IMG_MODEL) +
+        opt('ai',   state.imgSrc, 'AI 生成配图 · ' + imgModel()) +
       '</select>' +
       '<div class="hint"><b>真实照片</b>：先按食材筛，再<b>只留做法相同</b>的（烤配烤、白灼配白灼、' +
       '炖煮配炖煮），煎炸与做法不符的直接淘汰，并附原菜谱与 YouTube 演示；' +
@@ -2473,6 +2846,7 @@ function renderSetup() {
   }
 
   html += '</div><div>';
+  html += avoidCardHTML();
   html += '<div class="card ab"><h4>当前状态</h4><ul>' +
     '<li>运行模式：<span class="modepill ' + (USE_BACKEND ? 'backend' : 'direct') + '"><i></i>' +
       (USE_BACKEND ? '后端模式 · Key 在服务端' : '直连模式 · 浏览器直调智谱') + '</span></li>' +
@@ -2482,7 +2856,8 @@ function renderSetup() {
         '<li>Key 来源：<b>' + (own ? '你自己填的' : '内置默认') + '</b></li>') +
     '<li>菜单来源：<b>' + (isFallback(state.plan) ? '内置保底菜谱' : 'AI 已生成（保存在本地）') + '</b></li>' +
     '<li>配图：<b>' + (USE_BACKEND ? Object.keys(state.imgs).length + ' 张已缓存'
-      : (state.imgSrc === 'real' ? '真实照片 · TheMealDB' : 'AI 生成 · ' + IMG_MODEL)) + '</b></li>' +
+      : (state.imgSrc === 'real' ? '真实照片 · TheMealDB'
+        : 'AI 生成 · ' + imgModel() + '（本地已缓存 ' + Object.keys(state.imgCache).length + ' 张）')) + '</b></li>' +
     '<li>接口地址：<span style="font-size:12px;color:var(--ink-3)">' + esc(API_BASE) + '</span></li>' +
     '</ul></div>';
 
@@ -2494,14 +2869,17 @@ function renderSetup() {
         '再<b>按做法打分</b>（烤 / 蒸 / 白灼 / 焯水 / 炖煮 / 凉拌），煎炸和做法不符的直接淘汰。</li>' +
         '<li>⚠️ 照片是<b>同做法的相近菜品，不是这道菜的实拍</b> —— 详情页会标明来源与原始菜名，请不要去掉这个说明。</li>' +
         '<li>同时附上该菜谱的 <b>YouTube 做法演示</b>与原文链接；抖音 / 小红书 / B站 / 下厨房 提供搜索深链，搜索词里带上了这道菜的做法与「零油烟 地中海」。</li>'
-      : '<li>配图由 <b>' + esc(IMG_MODEL) + '</b> 生成，属于<b>免费</b>模型，不额外计费' +
-        (USE_BACKEND ? '。' : '，也不需要 API Key。') + '</li>') +
+      : '<li>配图由 <b>' + esc(imgModel()) + '</b> 生成（硅基流动 SiliconFlow）。' +
+        '⚠️ 原本想用的 <b>FLUX 已经下架</b>，现在默认 Z-Image-Turbo —— 快、稳、食物摄影效果好。' +
+        '模型可在上面切换。</li>') +
     (USE_BACKEND
       ? '<li>图片链接带签名、有效期约 7 天，所以本页缓存的是<b>链接</b>而不是图片本身。</li>'
       : (realOn
           ? '<li>没有「做法相同」的菜品时（例如<b>烤鱼</b> —— 库里只有炖鱼、煎鱼和鱼汤），' +
             '这一天会自动退回 AI 配图并在详情页说明，不会出现空白或破图。</li>'
-          : '<li>图片地址由菜名与做法确定性推导，<b>永不过期</b>，无需下载到本地。</li>')) +
+          : '<li>硅基流动返回的图片链接<b>会过期</b>（Z-Image / Qwen 约 24 小时，Kolors 只有 1 小时），' +
+            '所以本页会把图<b>压成小图存进浏览器本地</b>（data URL，永不过期）；' +
+            '取不到字节时退化成「存链接 + 过期后重新画」。</li>')) +
     '<li>页面会在配图上标注「AI 生成配图」或「真实照片」，这是法规与诚信要求，请勿去除。</li></ul></div>';
   html += '</div></div></section></div>';
   $('#app').innerHTML = html;
@@ -2557,6 +2935,9 @@ function renderLayers() {
       '<div class="close" data-act="closebusy">' + (b.err ? '关闭' : '后台运行，先看看别的') + '</div>' +
       '</div></div>';
   }
+
+  /* 首次访问弹一次免责说明，点「我知道了」后写 localStorage 不再打扰 */
+  if (!state.seen && !state.busy && !state.sheet) html += legalHTML();
 
   if (state.toast) html += '<div class="toast">' + esc(state.toast) + '</div>';
   $('#layers').innerHTML = html;
@@ -2643,7 +3024,7 @@ async function doGenWeek() {
       const avoid = days.map((d) => d.title).filter(Boolean);
       busyMsg('正在联网检索并设计 ' + slice.map((m) => m.wk).join('、') + ' 的午餐…',
         4 + Math.round((i / total) * 90));
-      const results = await Promise.all(slice.map((meta) => generateDay(meta, plan, avoid, '')));
+      const results = await Promise.all(slice.map((meta) => generateDay(meta, plan, avoid, avoidLine())));
       results.forEach((d) => days.push(d));
       busyMsg('已完成 ' + days.length + '/' + total + ' 天', 4 + Math.round((days.length / total) * 90));
     }
@@ -2658,13 +3039,9 @@ async function doGenWeek() {
     days.forEach((d) => { d.servings = oldServ || COMPANY; });
 
     /* 配图必须跟着菜单一起换，否则用户会觉得「菜单重生成了但图还是老样子」：
-       ① AI 图：默认种子由「菜名 + 做法」派生，菜名没变就永远是同一张
-          （上游 CDN 还缓存一年）→ 每次生成都发一个新种子；
+       ① AI 图：新种子 → 缓存键变了 → 缓存未命中 → 重新生成（旧图自然被换掉）；
        ② 真实照片：把旧的匹配结果清掉，让 ensureReal() 按新菜单重查。 */
     days.forEach((d) => { d.img_seed = Math.floor(Math.random() * 1000000); delete d.real; });
-    /* 手动点过「换一张配图」写进 state.imgSeeds 的种子也要清 ——
-       不清的话它会一直盖住新种子，表现就是「怎么重新生成，图片都不变」。 */
-    days.forEach((d) => { delete state.imgSeeds[d.id]; });
 
     state.menus[plan] = {
       plan,
@@ -2866,13 +3243,12 @@ async function doRegen(id) {
 
     const avoid = (menu(state.plan).days || []).map((x) => x.title).filter(Boolean);
     if (d.title && avoid.indexOf(d.title) < 0) avoid.push(d.title);
-    const user = buildRegenPrompt(meta, d.title || '', '', (PLANS[state.plan] || {}).style || '', avoid, COMPANY);
+    const user = buildRegenPrompt(meta, d.title || '', '', (PLANS[state.plan] || {}).style || '', avoid, COMPANY, avoidLine());
     const r = await chatJson(PROMPTS.chefSystem, user, { search:true });
     const nd = normalizeDay(r.json, meta, state.plan, r.sources);
     nd.servings = d.servings || COMPANY;
-    /* 换了菜，配图也得跟着换：新种子 + 清掉真实照片的旧匹配 + 清掉手动换过的种子 */
+    /* 换了菜，配图也得跟着换：发新种子（缓存键随之改变，旧图自动作废）+ 清掉后端模式的旧记录 */
     nd.img_seed = Math.floor(Math.random() * 1000000);
-    delete state.imgSeeds[id];
     delete state.imgs[state.plan + ':' + id];
     writeImgs();
     saveDay(nd);
@@ -2919,23 +3295,8 @@ async function doImage(id) {
     return;
   }
 
-  /* 直连模式 · AI 图：配图随菜单自动就有了，这个按钮是「换一张」——
-     换个随机种子即可得到另一张图（地址本来就是推导出来的，不用真的「生成」）。 */
-  if (!USE_BACKEND) {
-    busy('正在换一张配图', '换个随机种子重新出图，约需 5–20 秒…', 40,
-      '使用免费图像模型 ' + IMG_MODEL + '，不需要 API Key。');
-    try {
-      state.imgSeeds[d.id] = Math.floor(Math.random() * 1000000);
-      await preloadImage(imgUrlFor(d));
-      state.busy = null;
-      render();
-      toast('已换一张配图');
-    } catch (e) {
-      delete state.imgSeeds[d.id];        // 换失败了就退回原来那张，别留个破图
-      busyErr(e);
-    }
-    return;
-  }
+  /* 直连模式的 AI 配图已经随菜单自动生成，页面上没有对应的按钮 —— 走到这里直接返回。 */
+  if (!USE_BACKEND) return;
 
   busy('正在生成配图', '按这道菜的食材与做法生成图片，约需 8–10 秒…', 40,
     '使用免费图像模型 ' + IMG_MODEL + '，不额外计费。');
@@ -3115,6 +3476,252 @@ async function testKey() {
 }
 
 /* =========================================================================
+   6.5 UX 增强：忌口筛选 / 一周汇总 / 打印 / 复制清单 / 免责
+   ========================================================================= */
+
+/* 忌口与过敏源。荤菜类按 day.type 判，食材类按名字扫。 */
+const AVOID_OPTS = [
+  { k:'beef',    t:'不吃牛肉' },
+  { k:'pork',    t:'不吃猪肉' },
+  { k:'chicken', t:'不吃鸡肉' },
+  { k:'seafood', t:'不吃海鲜' },
+  { k:'shrimp',  t:'不吃虾' },
+  { k:'nuts',    t:'坚果过敏' },
+  { k:'dairy',   t:'乳制品过敏' },
+  { k:'gluten',  t:'麸质过敏' }
+];
+const AVOID_LABEL = { beef:'牛肉', pork:'猪肉', chicken:'鸡肉', seafood:'海鲜', shrimp:'虾',
+                      nuts:'坚果', dairy:'乳制品', gluten:'麸质' };
+/* 只有「过敏源」才扫食材名；肉类别直接看 day.type */
+const AVOID_PAT = {
+  nuts:   /核桃|杏仁|腰果|榛子|松子|开心果|南瓜籽|葵花籽|芝麻|亚麻籽|奇亚籽|巴旦木|花生/,
+  dairy:  /奶酪|酸奶|牛奶|黄油|芝士|菲达|帕玛森|茅屋|马苏里拉/,
+  gluten: /意面|面包|大麦|燕麦|小麦|全麦| couscous/i
+};
+const MEAT_TYPES = ['fish', 'shrimp', 'chicken', 'beef', 'pork'];
+const KCAL_BANDS = [
+  { k:'all',     t:'不限热量' },
+  { k:'lt600',   t:'< 600',      lo:0,   hi:600 },
+  { k:'600-700', t:'600–700',    lo:600, hi:700 },
+  { k:'gt700',   t:'> 700',      lo:700, hi:1e9 }
+];
+
+/* 这一天撞上了哪几条忌口（空数组 = 安全） */
+function avoidHits(d) {
+  const av = state.avoid || [];
+  if (!av.length || !d) return [];
+  const hits = [];
+  av.forEach((k) => {
+    if (k === 'seafood') {
+      if (d.type === 'fish' || d.type === 'shrimp') hits.push('海鲜');
+      return;
+    }
+    if (MEAT_TYPES.indexOf(k) >= 0) {
+      if (d.type === k) hits.push(AVOID_LABEL[k]);
+      return;
+    }
+    const pat = AVOID_PAT[k];
+    if (pat && (d.ing || []).some((i) => pat.test(String(i.n || '')))) hits.push(AVOID_LABEL[k]);
+  });
+  return hits;
+}
+
+/* 生成菜单时塞进提示词的忌口说明；没有忌口时返回空串（保证 buildDayPrompt 逐字比对不受影响） */
+function avoidLine() {
+  const av = state.avoid || [];
+  if (!av.length) return '';
+  return '【忌口与过敏源 · 必须完全避开】' + av.map((k) => AVOID_LABEL[k]).join('、') +
+    '。任何食材、替代项、调味料里都不允许出现它们。\n';
+}
+
+/* ---- 一周营养汇总 ---- */
+function weekAggHTML(days) {
+  const n = days.length;
+  if (!n) return '';
+  const sum = (f) => days.reduce((s, d) => s + num(d[f]), 0);
+  const kcal = sum('kcal'), p = sum('p'), c = sum('c'), f = sum('f'), fb = sum('fb');
+  const veg = days.reduce((s, d) => s +
+    (d.ing || []).filter((i) => i.c === 'veg').reduce((a, i) => a + num(i.g), 0), 0);
+  const cell = (v, u, l, extra) =>
+    '<div class="wa-cell"><div class="v">' + v + '<span class="u">' + u + '</span></div>' +
+    '<div class="l">' + l + '</div>' + (extra ? '<div class="d">' + extra + '</div>' : '') + '</div>';
+  return '<div class="weekagg">' +
+    '<div class="wa-h"><b>一周营养汇总</b>' +
+    '<span>共 ' + n + ' 天 · 左边是五天合计，小字是日均（一人份）</span></div>' +
+    '<div class="wa-grid">' +
+    cell(Math.round(kcal), 'kcal', '总热量', Math.round(kcal / n) + ' kcal/天') +
+    cell(r1(p), 'g', '蛋白质', r1(p / n) + ' g/天') +
+    cell(r1(c), 'g', '碳水', r1(c / n) + ' g/天') +
+    cell(r1(f), 'g', '脂肪', r1(f / n) + ' g/天') +
+    cell(r1(fb), 'g', '膳食纤维', '日均蔬菜 ' + Math.round(veg / n) + ' g') +
+    '</div></div>';
+}
+
+/* ---- 筛选（纯展示层：只影响看什么，不改菜谱本身）---- */
+function filterDays(days) {
+  const band = KCAL_BANDS.filter((b) => b.k === state.fKcal)[0] || KCAL_BANDS[0];
+  return days.filter((d) => {
+    if (state.fMeat && state.fMeat !== 'all' && d.type !== state.fMeat) return false;
+    if (band.k !== 'all') {
+      const k = num(d.kcal);
+      if (!(k >= band.lo && k < band.hi)) return false;
+    }
+    if (state.hideAvoid && avoidHits(d).length) return false;
+    return true;
+  });
+}
+
+function filterBarHTML(days) {
+  const av = state.avoid || [];
+  const btn = (act, arg, on, label) =>
+    '<button data-act="' + act + '" data-arg="' + arg + '"' +
+    (on ? ' class="on"' : '') + '>' + esc(label) + '</button>';
+  let h = '<div class="fbar"><span class="fl">荤菜</span>';
+  h += btn('fmeat', 'all', state.fMeat === 'all', '全部');
+  MEAT_TYPES.forEach((t) => { h += btn('fmeat', t, state.fMeat === t, TYPE_LABEL[t] || t); });
+  h += '<span class="fsep"></span><span class="fl">热量</span>';
+  KCAL_BANDS.forEach((b) => { h += btn('fkcal', b.k, state.fKcal === b.k, b.t); });
+  if (av.length) {
+    h += '<span class="fsep"></span>';
+    h += '<button data-act="favoid"' + (state.hideAvoid ? ' class="on"' : '') +
+      '>隐藏忌口日（' + esc(av.map((k) => AVOID_LABEL[k]).join('、')) + '）</button>';
+  }
+  h += '<span class="fsep"></span>' +
+    '<button data-act="freset" class="freset">重置</button></div>';
+  /* 逐天提示哪些天撞了忌口 —— 光靠「隐藏」用户不知道被藏了什么 */
+  const bad = days.filter((d) => avoidHits(d).length);
+  if (bad.length) {
+    h += '<div class="disc" style="margin:0 0 16px">⚠️ 这 ' + bad.length + ' 天含有你的忌口：' +
+      bad.map((d) => '<b>' + esc(d.wk) + '</b>（' + esc(avoidHits(d).join('、')) + '）').join('、') +
+      '。可在「设置 → 忌口」里改，或重新生成菜单让 AI 直接避开。</div>';
+  }
+  return h;
+}
+
+/* ---- 打印菜谱 ---- */
+function printHTML(d) {
+  const serv = d.servings || COMPANY;
+  const groups = {};
+  (d.ing || []).forEach((it) => { (groups[it.c] = groups[it.c] || []).push(it); });
+  let h = '<div class="pwrap">';
+  h += '<div class="phead"><div class="pt">' + esc(d.title) + '</div>' +
+    '<div class="ps">' + esc(d.wk) + ' · ' + esc(d.en) + ' · ' + esc(d.sub || '') + '</div>' +
+    '<div class="pm">做法：' + esc(d.method || '') +
+    (d.time ? ' · 约 ' + esc(d.time) + ' 分钟' : '') +
+    ' · 一人份 ' + gfmt(num(d.total_g)) +
+    ' · ' + Math.round(num(d.kcal)) + ' kcal · 蛋白 ' + num(d.p) + ' g · 碳水 ' + num(d.c) +
+    ' g · 脂肪 ' + num(d.f) + ' g · 纤维 ' + num(d.fb) + ' g</div></div>';
+  h += '<div class="pcols"><div><h4>食材清单（' + serv + ' 人份）</h4>';
+  CAT_ORDER.forEach((c) => {
+    const items = groups[c];
+    if (!items || !items.length) return;
+    h += '<div class="pg">' + esc((CAT_STYLE[c] || {}).label || c) + '</div>';
+    items.forEach((it) => {
+      h += '<div class="pi"><span>' + esc(it.n) + '</span><b>' + gfmt(num(it.g) * serv) + '</b></div>';
+    });
+  });
+  h += '</div><div><h4>做法步骤</h4>';
+  (d.steps || []).forEach((s, i) => {
+    h += '<div class="pst"><span class="ptt">' + (i + 1) + '. ' + esc(s.t) + '</span> ' + esc(s.d) + '</div>';
+  });
+  if (d.chef && d.chef.ref) h += '<div class="pref">' + esc(d.chef.ref) + '</div>';
+  h += '</div></div>';
+  h += '<div class="pfoot">由「健康午餐」AI 主厨生成 · 一人一份精准到克 · ' +
+    'AI 生成菜谱仅供参考，不构成医疗或营养建议。' +
+    (d.sources && d.sources.length
+      ? '<br>联网核对来源：' + esc(d.sources.map((s) => s.link).join('  ')) : '') +
+    '</div></div>';
+  return h;
+}
+
+/* 不弹新窗口（会被浏览器拦截），而是写进 #print 再靠 @media print 藏掉其余部分 */
+function doPrint(id) {
+  const d = day(state.plan, id || state.dayId);
+  if (!d) return;
+  const box = $('#print');
+  if (!box) { toast('当前环境不支持打印'); return; }
+  box.innerHTML = printHTML(d);
+  try { window.print(); } catch (e) { toast('打印被浏览器拦截了'); }
+}
+
+/* ---- 复制购物清单 ---- */
+function shopText() {
+  const { serv, items } = shopData();
+  const picked = shopPicked();
+  const all = (menu(state.plan) || {}).days || [];
+  const allOn = !state.shopDays || !state.shopDays.length;
+  const label = allOn ? ('全周 ' + all.length + ' 天') : picked.map((d) => d.wk).join('、');
+  const lines = ['健康午餐 · 采购清单（' + label + ' · ' + serv + ' 人份）', ''];
+  CAT_ORDER.forEach((c) => {
+    const list = items.filter((i) => i.c === c).sort((a, b) => b.per - a.per);
+    if (!list.length) return;
+    lines.push('【' + ((CAT_STYLE[c] || {}).label || c) + '】');
+    list.forEach((i) => lines.push('  ' + i.n + '  ' + gfmt(i.per * serv)));
+    lines.push('');
+  });
+  const grand = items.reduce((s, i) => s + i.per * serv, 0);
+  lines.push('合计约 ' + (r1(grand / 1000)).toFixed(2) + ' kg');
+  return lines.join('\n');
+}
+
+function doCopyShop() {
+  const txt = shopText();
+  const done = () => toast('采购清单已复制，可直接粘到微信 / 备忘录 / 买菜 App');
+  const fail = () => toast('复制失败，请手动长按选择文字');
+  /* ⚠️ file:// 下 navigator.clipboard 常常不可用（不是安全上下文），
+     所以必须留一条 execCommand 兜底 —— 否则双击打开的页面永远复制不了。 */
+  const legacy = () => {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = txt;
+      ta.setAttribute('readonly', '');
+      ta.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0';
+      document.body.appendChild(ta);
+      ta.select();
+      ta.setSelectionRange(0, txt.length);
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      if (ok) done(); else fail();
+    } catch (e) { fail(); }
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(txt).then(done, legacy);
+  } else legacy();
+}
+
+/* ---- 设置页：忌口 + 热量目标 ---- */
+function avoidCardHTML() {
+  const av = state.avoid || [];
+  let h = '<div class="card ab"><h4>忌口与营养目标</h4><ul style="list-style:none;padding:0">' +
+    '<li style="margin-bottom:10px">勾选后，<b>下次生成菜单时 AI 会直接避开</b>这些食材；' +
+    '首页也会把撞上忌口的日子标出来（可选隐藏）。</li></ul>';
+  h += '<div class="avoidgrid">' + AVOID_OPTS.map((o) =>
+    '<label class="avopt"><input type="checkbox" name="avoid" value="' + o.k + '"' +
+    (av.indexOf(o.k) >= 0 ? ' checked' : '') + '> ' + esc(o.t) + '</label>').join('') + '</div>';
+  h += '<div class="setrow" style="margin-top:14px"><label for="kt">每日热量目标</label>' +
+    '<select id="kt">' + KCAL_BANDS.map((b) => opt(b.k, state.kcalTarget, b.t)).join('') + '</select>' +
+    '<div class="hint">生成新菜单时会按这个区间来配（当前菜单不受影响）。</div></div>';
+  h += '<div class="hint">改完记得点下面的<b>保存设置</b>。</div></div>';
+  return h;
+}
+
+/* ---- 首次访问的免责提示 ---- */
+function legalHTML() {
+  return '<div class="legalmask"><div class="legalbox">' +
+    '<h4>关于这些菜谱，请先看三句话</h4>' +
+    '<p><b>AI 生成菜谱仅供参考，不构成医疗或营养建议。</b>' +
+    '本页菜谱由大模型联网检索公开做法后生成，克重与营养数值为估算值。</p>' +
+    '<ul>' +
+    '<li>有慢性病（糖尿病、高血压、肾病等）、孕期哺乳期，或进食障碍史，' +
+    '请先咨询医生或注册营养师。</li>' +
+    '<li>有食物过敏史，务必自己再核对一遍配料表 —— AI 可能漏掉隐性过敏源。</li>' +
+    '<li>温度与时间来自公开菜谱，请按自家烤箱 / 灶具与食材实际状态调整。</li>' +
+    '</ul>' +
+    '<button class="btn lbtn" data-act="seenok">我知道了</button>' +
+    '</div></div>';
+}
+
+/* =========================================================================
    7. 事件
    ========================================================================= */
 document.addEventListener('click', function (ev) {
@@ -3145,6 +3752,36 @@ document.addEventListener('click', function (ev) {
       break;
     case 'goto':
       state.view = arg; if (arg !== 'day') state.dayId = null; render();
+      break;
+    case 'today': {
+      const ds = (menu(state.plan) || {}).days || [];
+      if (!ds.length) { toast('还没有菜单，先生成一份吧'); break; }
+      const t = ds[Math.min(todayIdx(), ds.length - 1)];
+      state.dayId = t.id; state.view = 'day'; render();
+      break;
+    }
+    case 'print':
+      doPrint(arg || state.dayId);
+      break;
+    case 'copyshop':
+      doCopyShop();
+      break;
+    case 'fmeat':
+      state.fMeat = arg || 'all'; render();
+      break;
+    case 'fkcal':
+      state.fKcal = arg || 'all'; render();
+      break;
+    case 'favoid':
+      state.hideAvoid = !state.hideAvoid; render();
+      break;
+    case 'freset':
+      state.fMeat = 'all'; state.fKcal = 'all'; state.hideAvoid = false; render();
+      break;
+    case 'seenok':
+      state.seen = true;
+      try { localStorage.setItem(LS.seen, '1'); } catch (e) {}
+      renderLayers();
       break;
     case 'image':
       doImage(arg);
@@ -3186,14 +3823,26 @@ document.addEventListener('click', function (ev) {
       const k = ($('#k') || {}).value;
       const m = ($('#m') || {}).value;
       const is = ($('#is') || {}).value;
+      const ik = ($('#ik') || {}).value;
+      const im = ($('#im') || {}).value;
+      const kt = ($('#kt') || {}).value;
+      const av = $$('input[name="avoid"]:checked').map((x) => x.value);
       try {
         if (k != null) { if (k.trim()) localStorage.setItem(LS.key, k.trim()); else localStorage.removeItem(LS.key); }
         if (m) localStorage.setItem(LS.model, m);
         if (is === 'ai' || is === 'real') localStorage.setItem(LS.imgsrc, is);
+        if (ik != null) { if (ik.trim()) localStorage.setItem(LS.imgkey, ik.trim()); else localStorage.removeItem(LS.imgkey); }
+        if (im) localStorage.setItem(LS.imgmodel, im);
+        if (kt) localStorage.setItem(LS.kcaltgt, kt);
+        localStorage.setItem(LS.avoid, JSON.stringify(av));
       } catch (e) {}
       if (is === 'ai' || is === 'real') state.imgSrc = is;
+      if (kt) state.kcalTarget = kt;
+      state.avoid = av;
       render();
-      toast(state.imgSrc === 'real' ? '已切到真实照片，正在按食材匹配…' : '设置已保存');
+      toast(av.length
+        ? ('已保存，生成新菜单时会避开：' + av.map((x) => AVOID_LABEL[x]).join('、'))
+        : (state.imgSrc === 'real' ? '已切到真实照片，正在按食材匹配…' : '设置已保存'));
       break;
     }
     case 'testkey':
@@ -3350,9 +3999,14 @@ window.HL = {
   state, render, normalizeDay, buildDayPrompt, buildSwapPrompt, buildRegenPrompt,
   imgPrompt, extractJson, normCat, cleanAlt, collectSources, menu, day, shopData,
   doGenWeek, doSwap, doRegen, doImage, openSwapSheet, openAddSheet, filterSheetList,
+  avoidHits, avoidLine, weekAggHTML, filterDays, filterBarHTML, printHTML, doPrint,
+  shopText, doCopyShop, legalHTML, avoidCardHTML, AVOID_OPTS, AVOID_LABEL, KCAL_BANDS,
   pickFromSheet, customFromSheet, changeServ, setServ, testKey, toast,
   DEFAULT_KEY, API_BASE, LS, IMG_TTL, chatJson, post, generateDay, generateImage,
   IMG_MODEL, IMG_API, imgUrlFor, imgSeed, preloadImage, shopServings,
+  DEFAULT_IMG_KEY, IMG_SF_BASE, IMG_SF_API, IMG_SF_MODELS, IMG_SF_DEFAULT,
+  IMG_SF_TTL, IMG_SF_STEPS, imgKey, imgModel, imgSize, imgHash,
+  imgCacheKey, imgCacheGet, imgCachePut, sfGenerate, ensureAiImage, shrinkImage, writeImgCache,
   /* 真实照片 / 做法链接（供测试与调试） */
   MEAL_API, MEAL_SITE, realQueries, lookupRealDish, lookupRealDetail, realPick, realMiss,
   recipeLinksHTML, recipeKeyword, ensureReal, RECIPE_PLATFORMS, MEAL_PROTEIN, MEAL_MED,
