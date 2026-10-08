@@ -149,7 +149,9 @@ a:hover{text-decoration:underline}
   background:linear-gradient(140deg,#2E7FA8,#17527A);
   box-shadow:0 30px 70px -26px rgba(0,0,0,.62), inset 0 0 0 1px rgba(255,255,255,.16);
 }
-.heroart .frame img{width:100%;height:100%;object-fit:cover}
+.heroart .frame img{width:100%;height:100%;object-fit:cover;opacity:0;
+  transition:opacity .5s ease}
+.heroart .frame img.is-in{opacity:1}
 .heroart .frame .ph{position:absolute;inset:0;display:grid;place-items:center;opacity:.5}
 .heroart .bubble{
   position:absolute;right:-12px;top:18px;padding:12px 16px;border-radius:16px;
@@ -217,11 +219,14 @@ main{padding-bottom:24px}
 }
 .day:hover{box-shadow:var(--sh);transform:translateY(-4px);border-color:var(--line-2)}
 .day:hover .thumb img{transform:scale(1.05)}
-.day .thumb{position:relative;aspect-ratio:4/3;background:var(--bg);overflow:hidden}
+.day .thumb{position:relative;aspect-ratio:4/3;background-color:var(--bg);
+  background-size:cover;background-position:center;overflow:hidden}
 /* 底部压一层暗角，让「鱼/虾」标签在亮照片上也读得清 */
 .day .thumb::after{content:"";position:absolute;left:0;right:0;bottom:0;height:46%;pointer-events:none;
   background:linear-gradient(180deg,rgba(9,29,42,0),rgba(9,29,42,.42))}
-.day .thumb img{width:100%;height:100%;object-fit:cover;transition:transform .5s ease}
+.day .thumb img{width:100%;height:100%;object-fit:cover;opacity:0;
+  transition:transform .5s ease,opacity .5s ease}
+.day .thumb img.is-in{opacity:1}
 .day .thumb .ph{position:absolute;inset:0;display:grid;place-items:center}
 .day .thumb .tag{
   position:absolute;left:10px;bottom:10px;padding:4px 11px;border-radius:999px;
@@ -274,8 +279,11 @@ main{padding-bottom:24px}
 .dbar .spacer{margin-left:auto}
 
 .dgrid{display:grid;grid-template-columns:1.02fr .98fr;gap:26px;align-items:start}
-.dhero{position:relative;border-radius:18px;overflow:hidden;aspect-ratio:4/3;background:var(--bg);border:1px solid var(--line)}
-.dhero img{width:100%;height:100%;object-fit:cover}
+.dhero{position:relative;border-radius:18px;overflow:hidden;aspect-ratio:4/3;
+  background-color:var(--bg);background-size:cover;background-position:center;
+  border:1px solid var(--line)}
+.dhero img{width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .5s ease}
+.dhero img.is-in{opacity:1}
 .dhero .ph{position:absolute;inset:0;display:grid;place-items:center}
 .dhero .badge{
   position:absolute;left:12px;top:12px;padding:5px 12px;border-radius:999px;font-size:12.5px;
@@ -1510,9 +1518,22 @@ function imgSeed(day) {
 }
 
 /* 直连模式的配图地址：命中缓存就返回它，否则返回空串 ——
-   先显示本地占位图，等串行队列真正生成好再换上去。 */
+   先显示本地占位图，等串行队列真正生成好再淡入。 */
 function imgUrlFor(day) {
   return imgCacheGet(day);
+}
+
+/* 渲染时 <img> 的 src 到底放哪张：
+   · 命中本地缓存（data URL）→ **直接放真图**。它是同步可用的，
+     首帧就是最终态，用户完全看不到「换图」这一步。
+   · 其它（还没生成、或只是网络地址）→ 放本地占位图打底。
+     网络地址不能直接放：那样卡片会先空一块再出图，比现在还差。 */
+function imgDisplaySrc(url, thumb) {
+  return isDataUrl(url) ? url : (thumb || '');
+}
+
+function isDataUrl(u) {
+  return typeof u === 'string' && u.indexOf('data:') === 0;
 }
 
 /* ---- AI 配图的本地缓存 ----
@@ -1664,6 +1685,30 @@ const imgQueue = [];
 let imgPumping = false;
 const IMG_TRIES = 3;
 
+/* 真图就绪后**淡入**，而不是「啪」地切过去。
+   底层是容器上的占位图 background-image（全程不动），真图作为 <img> 盖在上面
+   从 opacity:0 过渡到 1 —— 视觉上就是两张图交叉淡化。 */
+const raf2 = (typeof requestAnimationFrame === 'function')
+  ? (f) => requestAnimationFrame(() => requestAnimationFrame(f))
+  : (f) => setTimeout(f, 32);
+
+function revealImg(el) {
+  if (!el || !el.isConnected || el.classList.contains('is-in')) return;
+  /* ⚠️ 必须是**两次** rAF：一次的话回调跑在下一帧绘制之前，
+     浏览器还没机会按 opacity:0 画过一次，过渡就整个被跳过（等于还是硬切）。 */
+  raf2(() => { if (el.isConnected) el.classList.add('is-in'); });
+}
+
+/* 渲染时 src 里已经是真图的（缓存 data URL）—— 同样让它们淡入，
+   否则首帧就是最终态、没有过渡，看着还是硬切。 */
+function revealReadyImages() {
+  const list = document.querySelectorAll('img[data-src]');
+  for (let i = 0; i < list.length; i++) {
+    const el = list[i];
+    if (!el.classList.contains('is-in') && isDataUrl(el.getAttribute('src'))) revealImg(el);
+  }
+}
+
 function queueImages() {
   /* 每次 render 都会重建 DOM，之前排队的元素已经不在页面上了 —— 直接清掉。
      否则队列会越积越长（每次渲染都要白等一堆已作废的任务），
@@ -1724,8 +1769,8 @@ async function loadOneImage(job) {
         if (done) return;
         done = true;
         imgLoading--;
-        /* 成功就换成 AI 图；失败保持本地占位图，绝不出现破图 */
-        if (ok && job.el.isConnected) job.el.src = url;
+        /* 成功就换成 AI 图并淡入；失败保持本地占位图，绝不出现破图 */
+        if (ok && job.el.isConnected) { job.el.src = url; revealImg(job.el); }
         resolve();
       };
       const timer = setTimeout(() => { im.src = ''; finish(false); }, 120000);
@@ -2387,8 +2432,10 @@ function renderHome() {
   html += '</div>';
   html += '</div>';
 
-  html += '<div class="heroart"><div class="frame">';
-  if (hi && thumbUrl(hi)) html += '<img src="' + esc(thumbUrl(hi)) + '" data-src="' + esc(hiImg) +
+  html += '<div class="heroart"><div class="frame"' +
+    (hi && thumbUrl(hi) ? ' style="background-image:url(' + esc(thumbUrl(hi)) + ')"' : '') + '>';
+  if (hi && thumbUrl(hi)) html += '<img src="' + esc(imgDisplaySrc(hiImg, thumbUrl(hi))) +
+    '" data-src="' + esc(hiImg) +
     '" data-day="' + esc(hi.id) + '" alt="' + esc(hi.title) + '">';
   else html += phHTML(hi ? hi.type : 'veg');
   html += '</div>';
@@ -2489,15 +2536,16 @@ function metric(v, u, l) {
 }
 
 function dayCard(d, i) {
-  /* src 只表示「AI 图地址」；还没生成好就是空串 —— 这时先挂本地占位图，
-     由串行队列按 data-day 去 SiliconFlow 现生成一张再换上来。
-     ⚠️ 千万别写成 `imgUrl(...) || thumbUrl(d)`：那样 data-src 永远非空，
-     队列会以为「已经有地址了」而只加载本地占位图，配图就永远不更新。 */
+  /* data-src 只表示「AI 图地址」；还没生成好就是空串 —— 这时先挂本地占位图，
+     由串行队列按 data-day 去 SiliconFlow 现生成一张再淡入。
+     ⚠️ 千万别把 data-src 写成 `imgUrl(...) || thumbUrl(d)`：那样它永远非空，
+     队列会以为「已经有地址了」而只加载本地占位图，配图就永远不更新。
+     （显示用的 src 走 imgDisplaySrc：命中缓存就直接显示真图，一点都不闪。） */
   const src = imgUrl(state.plan, d.id);
   const isToday = i === todayIdx();
   return '<button class="day' + (isToday ? ' is-today' : '') +'" data-act="open" data-arg="' + d.id + '">' +
-    '<div class="thumb">' +
-      (thumbUrl(d) ? '<img src="' + esc(thumbUrl(d)) + '" data-src="' + esc(src) + '" data-day="' + esc(d.id) + '" alt="" loading="lazy">' : phHTML(d.type, 56)) +
+    '<div class="thumb"' + (thumbUrl(d) ? ' style="background-image:url(' + esc(thumbUrl(d)) + ')"' : '') + '>' +
+      (thumbUrl(d) ? '<img src="' + esc(imgDisplaySrc(src, thumbUrl(d))) + '" data-src="' + esc(src) + '" data-day="' + esc(d.id) + '" alt="" loading="lazy">' : phHTML(d.type, 56)) +
       '<span class="tag">' + esc(d.tn) + '</span>' +
       (isToday ? '<span class="today">今天</span>' : '') +
     '</div>' +
@@ -2554,7 +2602,8 @@ function renderDay() {
 
   /* 左：图 + 营养 */
   html += '<div>';
-  html += '<div class="dhero">' + (thumbUrl(d) ? '<img src="' + esc(thumbUrl(d)) + '" data-src="' + esc(src) + '" data-day="' + esc(d.id) + '" alt="' + esc(d.title) + '">' : phHTML(d.type, 92)) +
+  html += '<div class="dhero"' + (thumbUrl(d) ? ' style="background-image:url(' + esc(thumbUrl(d)) + ')"' : '') + '>' +
+    (thumbUrl(d) ? '<img src="' + esc(imgDisplaySrc(src, thumbUrl(d))) + '" data-src="' + esc(src) + '" data-day="' + esc(d.id) + '" alt="' + esc(d.title) + '">' : phHTML(d.type, 92)) +
     '<span class="badge">' + esc(d.tn) + '</span>' +
     (real ? '<span class="ai realph">真实照片</span>' : (aiImg ? '<span class="ai">AI 生成配图</span>' : '')) + '</div>';
   /* 真实照片必须写清来源与「不是这道菜的实拍」—— 这是诚信问题，
@@ -3063,6 +3112,7 @@ function render() {
   ensureReal();                     // 真实照片模式：缺图的先补齐（异步，补完自动重渲染）
   ensureRealDetail();               // 详情页：补取 YouTube / 原站链接
   queueImages();                    // 新渲染出来的配图入队，一张一张加载
+  revealReadyImages();              // 缓存命中（data URL）的那些下一帧淡入，避免硬切
   /* 只有「换页」才回到顶部。切换方案、调就餐人数、改采购范围都是在同一页里
      重渲染，无条件 scrollTo(0,0) 会让用户瞬间丢失当前位置 ——
      手机上尤其难受：刚滑到下面点一下，直接被弹回顶端。 */
@@ -4149,6 +4199,7 @@ window.HL = {
   pickFromSheet, customFromSheet, changeServ, setServ, testKey, toast,
   DEFAULT_KEY, API_BASE, LS, IMG_TTL, chatJson, post, generateDay, generateImage,
   IMG_MODEL, IMG_API, imgUrlFor, imgSeed, preloadImage, shopServings,
+  imgDisplaySrc, isDataUrl, revealReadyImages,
   DEFAULT_IMG_KEY, IMG_SF_BASE, IMG_SF_API, IMG_SF_MODELS, IMG_SF_DEFAULT,
   IMG_SF_TTL, IMG_SF_STEPS, imgKey, imgModel, imgSize, imgHash,
   imgCacheKey, imgCacheGet, imgCachePut, sfGenerate, ensureAiImage, shrinkImage, writeImgCache,
