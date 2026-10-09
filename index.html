@@ -60,6 +60,37 @@ a:hover{text-decoration:underline}
 .nav button.on{background:var(--navy);color:#fff}
 .topbar .act{display:flex;gap:10px;align-items:center}
 
+/* ---------- 顶栏：周一到周五切换（在「健康午餐」logo 右边） ---------- */
+.weeknav{display:flex;gap:2px;padding:3px;background:var(--bg);border-radius:999px;flex:none}
+.weeknav button{
+  position:relative;padding:6px 12px;border-radius:999px;font-size:13px;font-weight:600;
+  color:var(--ink-2);white-space:nowrap;transition:background .15s,color .15s;
+}
+.weeknav button:hover{background:#fff;color:var(--ink)}
+.weeknav button.on{background:var(--navy);color:#fff;box-shadow:0 4px 10px -6px rgba(14,61,92,.9)}
+/* 今天那个按钮点一个小圆点：切到别的日子之后，一眼能看出今天是哪天 */
+.weeknav button.today::after{
+  content:'';position:absolute;left:50%;bottom:1px;width:4px;height:4px;
+  margin-left:-2px;border-radius:50%;background:var(--green-d);
+}
+.weeknav button.today.on::after{background:#fff}
+.weeknav .fn{display:none}
+@media(max-width:900px){
+  .weeknav{gap:1px;padding:2px}
+  .weeknav button{padding:6px 9px;font-size:12.5px}
+  .weeknav .fw{display:none}
+  .weeknav .fn{display:inline}
+}
+@media(max-width:640px){
+  .topbar .wrap{gap:12px}
+  .weeknav button{padding:5px 7px;font-size:11.5px}
+  .topbar .act .btn{padding:8px 13px;font-size:13px}
+}
+@media(max-width:430px){
+  /* 再窄就把「健康午餐」四个字收掉，只留 logo 图标 —— 星期按钮不能被挤掉 */
+  .brand span{display:none}
+}
+
 /* ---------- 按钮 ---------- */
 /* 主按钮：底色用 --green-d（白字 5.24:1，过 AA）。--green #3E9E6A 只有 3.33:1，
    亮绿留给没有文字的装饰元素。 */
@@ -459,6 +490,37 @@ main{padding-bottom:24px}
 .shoprow .per{font-size:12px;color:var(--ink-3);white-space:nowrap}
 .shoprow .g{font-size:14px;font-weight:600;color:var(--navy);font-variant-numeric:tabular-nums;
   min-width:82px;text-align:right;white-space:nowrap}
+.shoprow .pp{font-size:12.5px;color:var(--ink-2);white-space:nowrap;font-variant-numeric:tabular-nums;
+  min-width:106px;text-align:right}
+.shoprow .pp b{color:var(--navy);font-weight:600}
+.shoprow .pp.none{font-size:12px;color:var(--ink-3)}
+.shoprow .pq{width:26px;height:26px;flex:none;display:grid;place-items:center;border-radius:8px;cursor:pointer;
+  border:1px solid var(--line);background:#fff;font-size:13px;line-height:1;padding:0;
+  transition:border-color .15s,background .15s}
+.shoprow .pq:hover{border-color:var(--green);background:#F2FAF5}
+.pricebar{display:flex;align-items:flex-start;gap:8px;flex-direction:column;padding:14px 18px;margin-bottom:16px;
+  background:#fff;border:1px solid var(--line);border-radius:var(--r);font-size:13px;color:var(--ink-2);line-height:1.75}
+.pricebar b{color:var(--navy)}
+.pricebar .pw{font-size:12px;color:var(--ink-3)}
+.ppmask{position:fixed;inset:0;background:rgba(16,32,48,.42);z-index:58}
+.pricepop{position:fixed;z-index:59;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:min(440px,calc(100vw - 32px));background:#fff;border-radius:18px;padding:22px 22px 18px;
+  box-shadow:0 24px 60px rgba(16,32,48,.28)}
+.pricepop h4{font-size:16px;color:var(--navy);margin-bottom:8px}
+.pricepop .pn{font-size:12.5px;color:var(--ink-2);line-height:1.8;margin-bottom:14px}
+.pplist{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.pplist a{display:flex;flex-direction:column;gap:3px;padding:11px 13px;border-radius:12px;text-decoration:none;
+  border:1px solid #DCE7F2;background:#FBFDFF;transition:border-color .15s,background .15s}
+.pplist a:hover{border-color:var(--green);background:#F2FAF5}
+.pplist a b{font-size:14px;color:var(--navy)}
+.pplist a span{font-size:11.5px;color:var(--ink-3)}
+.ppacts{display:flex;gap:10px;justify-content:flex-end}
+@media (max-width:640px){
+  .pplist{grid-template-columns:1fr}
+  .shoprow .per{display:none}
+  .shoprow .pp{min-width:0;text-align:left}
+  .shoprow{gap:8px;padding:11px 14px}
+}
 
 /* ---------- 关于 ---------- */
 .aboutgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
@@ -824,6 +886,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,[t
       </svg>
       <span>健康午餐</span>
     </div>
+    <nav class="weeknav" id="weeknav" aria-label="切换周一到周五"></nav>
     <nav class="nav" id="topnav"></nav>
     <div class="act">
       <button class="btn ghost sm" id="btnTopGen" data-act="genweek">生成本周菜单</button>
@@ -907,7 +970,7 @@ const COMPANY    = W.companySize || 16;
 const THUMBS     = W.thumbs     || {};
 
 /* 内置 Key：为了让「任何人打开即可使用」成立。
-   注意它会出现在网页源码里 —— 详见「营养理念 · 设置」里的说明。 */
+   注意它会出现在网页源码里 —— 详见「设置」里的说明。 */
 const DEFAULT_KEY = "OBF1:CVMBD0xURUsFV1YFWhsOQVZaWx4AVVMFVF1RX0JdRkdPDwksLHsITBgrJ05zZkNbDg==";
 const ZHIPU_BASE  = "https://open.bigmodel.cn/api/paas/v4";
 
@@ -983,6 +1046,8 @@ const LS = { plan:'hl_plan', menus:'hl_menus', imgs:'hl_imgs', key:'hl_key', mod
              kcaltgt:'hl_kcaltgt',      // 每日热量目标
              stepimg:'hl_stepimg',      // '1' = 详细做法每一步配示意图 ｜ '0' = 只显示文字
              stepcache:'hl_stepcache',  // 步骤示意图缓存（与菜图分开存，见 stepCacheKey）
+             homeday:'hl_homeday',         // 首页当前显示的日期（null = 跟随今天）
+             price:'hl_prices',         // 食材参考价缓存：{ 食材名: 元/500g }
              seen:'hl_seen' };          // 是否已看过首次免责提示
 const IMG_TTL = 6.5 * 864e5;      // 智谱 CDN 签名有效期 7 天，留半天余量
 
@@ -1007,9 +1072,8 @@ const ICONS = {
   season: 'M10 3h4v2.6l2 3.2V20a1.6 1.6 0 0 1-1.6 1.6h-4.8A1.6 1.6 0 0 1 8 20V8.8l2-3.2z'
 };
 const NAV = [
-  {k:'home',  t:'本周菜单', d:'M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z'},
+  {k:'home',  t:'今日菜单', d:'M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z'},
   {k:'shop',  t:'采购清单', d:'M3 4h2l2.4 11h11L21 7H6M9 20a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm8 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2z'},
-  {k:'about', t:'营养理念', d:'M12 21s-7.5-4.7-7.5-10A4.5 4.5 0 0 1 12 8.2 4.5 4.5 0 0 1 19.5 11c0 5.3-7.5 10-7.5 10z'},
   {k:'setup', t:'设置',     d:'M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zm8.4-2.6l1.9 1.4-1.9 3.3-2.2-.9a7.4 7.4 0 0 1-1.9 1.1l-.3 2.4h-3.8l-.3-2.4a7.4 7.4 0 0 1-1.9-1.1l-2.2.9-1.9-3.3 1.9-1.4a7.5 7.5 0 0 1 0-2.2L4.5 9.3l1.9-3.3 2.2.9a7.4 7.4 0 0 1 1.9-1.1l.3-2.4h3.8l.3 2.4a7.4 7.4 0 0 1 1.9 1.1l2.2-.9 1.9 3.3-1.9 1.4a7.5 7.5 0 0 1 0 2.2z'}
 ];
 
@@ -2634,6 +2698,9 @@ function realMiss(day) {
    ========================================================================= */
 const state = {
   view: 'home',
+  /* 首页当前显示哪一天（顶栏「周一到周五」按钮改的就是它）。
+     null = 还没点过，自动落到「今天」。 */
+  homeDay: null,
   plan: 'A',
   dayId: null,
   menus: {},        // plan -> {plan,name,desc,servings,days:[...]}
@@ -2670,6 +2737,11 @@ const state = {
   fMeat: 'all',
   fKcal: 'all',
   hideAvoid: false,
+  /* 食材参考价（AI 联网估算的「元/500g」），键是食材名，落 localStorage。
+     ⚠️ 只是参考价，不是实时报价 —— 界面上必须写明。 */
+  prices: {},
+  /* 「去别的平台比价」浮层当前显示的食材名；null = 不显示 */
+  pricePop: null,
   /* 首次免责提示是否已读 */
   seen: true,
   /* 上一次生成失败的人话说明。非空时首页顶部显示常驻提示条 ——
@@ -2686,6 +2758,14 @@ function readLS() {
     const i = JSON.parse(localStorage.getItem(LS.imgs) || '{}'); if (i && typeof i === 'object') state.imgs = i;
     const av = JSON.parse(localStorage.getItem(LS.avoid) || '[]');
     if (Array.isArray(av)) state.avoid = av.filter((x) => AVOID_LABEL[x]);
+    const hd = localStorage.getItem(LS.homeday); if (hd) state.homeDay = hd;
+    const pr = JSON.parse(localStorage.getItem(LS.price) || '{}');
+    if (pr && typeof pr === 'object') {
+      Object.keys(pr).forEach((k) => {
+        const v = Number(pr[k]);
+        if (k && isFinite(v) && v > 0) state.prices[k] = Math.round(v * 10) / 10;
+      });
+    }
     const kt = localStorage.getItem(LS.kcaltgt);
     if (kt && KCAL_BANDS.some((b) => b.k === kt)) state.kcalTarget = kt;
     state.seen = localStorage.getItem(LS.seen) === '1';
@@ -2726,6 +2806,8 @@ function writeStepCache() {
   }
 }
 function writePlan()  { try { localStorage.setItem(LS.plan,  state.plan); } catch (e) {} }
+/* 参考价缓存很小（几十条），直接整体写 */
+function writePrices() { try { localStorage.setItem(LS.price, JSON.stringify(state.prices)); } catch (e) {} }
 
 /* 当前方案的数据：优先生成的，没有就用内置离线保底 */
 function menu(plan) {
@@ -2782,6 +2864,8 @@ function navHTML() {
 }
 function renderChrome() {
   $('#topnav').innerHTML = navHTML();
+  const wk = $('#weeknav');
+  if (wk) wk.innerHTML = weekNavHTML();
   $('#tabbar').innerHTML = NAV.map((n) =>
     '<button data-nav="' + n.k + '" class="' + (state.view === n.k ? 'on' : '') + '">' +
     '<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" ' +
@@ -2791,6 +2875,51 @@ function renderChrome() {
   gen.textContent = state.busy ? '正在生成…' : '生成本周菜单';
   gen.disabled = !!state.busy;
 }
+
+/* ---------- 顶栏「周一到周五」切换 + 首页当前展示哪一天 ---------- */
+
+/* 手机窄屏只显示一个字，省出来的宽度留给 logo 和「生成本周菜单」 */
+const WEEK_ABBR = { mon: '一', tue: '二', wed: '三', thu: '四', fri: '五' };
+
+function daysOf(plan) {
+  const m = menu(plan || state.plan);
+  return (m && m.days) || [];
+}
+
+/* 首页当前展示哪一天：state.homeDay 优先（用户点过星期按钮），
+   其次 state.dayId（老代码 / 外部调用只设这个），否则自动落到「今天」—— 周末落到周一。 */
+function selectedDayId() {
+  const ds = daysOf(state.plan);
+  if (!ds.length) return null;
+  const want = state.homeDay || state.dayId;
+  if (want && ds.some((d) => d.id === want)) return want;
+  return ds[Math.min(todayIdx(), ds.length - 1)].id;
+}
+
+function writeHomeDay() {
+  try { localStorage.setItem(LS.homeday, state.homeDay || ''); } catch (e) {}
+}
+
+/* 还没生成菜单时也把五个按钮画出来 —— 否则用户根本不知道有这个功能。
+   点了会落到「还没有菜谱」的空态 + 生成按钮，不会白屏。 */
+function weekNavHTML() {
+  const ds = daysOf(state.plan);
+  const cur = selectedDayId();
+  const list = ds.length ? ds : DAY_PLAN.map((m) => ({ id: m.id, wk: m.wk, title: '' }));
+  const todayId = ds.length ? ds[Math.min(todayIdx(), ds.length - 1)].id : null;
+  return list.map((d) => {
+    const on = d.id === cur;
+    return '<button data-act="day" data-arg="' + esc(d.id) + '"' +
+      (on ? ' class="on' + (d.id === todayId ? ' today' : '') + '"'
+          : (d.id === todayId ? ' class="today"' : '')) +
+      ' aria-current="' + (on ? 'true' : 'false') + '"' +
+      ' title="' + esc(d.wk + (d.title ? ' · ' + d.title : ' 还没生成')) + '">' +
+      '<span class="fw">' + esc(d.wk) + '</span>' +
+      '<span class="fn">' + esc(WEEK_ABBR[d.id] || d.wk.slice(-1)) + '</span>' +
+      '</button>';
+  }).join('');
+}
+
 
 function phHTML(type, size) {
   const s = size || 96;
@@ -2802,146 +2931,6 @@ function phHTML(type, size) {
 function todayIdx() {
   const d = new Date().getDay();          // 0=周日
   return d >= 1 && d <= 5 ? d - 1 : 0;
-}
-
-function renderHome() {
-  const m = menu(state.plan);
-  const planKeys = Object.keys(PLANS).length ? Object.keys(PLANS) : Object.keys(FALLBACK);
-  const days = m ? (m.days || []) : [];
-  const hi = days[Math.min(todayIdx(), Math.max(days.length - 1, 0))] || null;
-  /* hiImg 只表示 AI 图地址；没生成好就是空串（本地占位图先顶上） */
-  const hiImg = hi ? imgUrl(state.plan, hi.id) : '';
-  const fb = isFallback(state.plan);
-
-  let html = '';
-
-  /* 只读版必须说明「为什么没有生成按钮」—— 否则用户只会觉得页面坏了。 */
-  if (READONLY) {
-    html += '<div class="wrap"><div class="robar">' +
-      '这是 <b>只读版</b>：菜单已由 AI 主厨生成好并打包在这里，打开即可查看，' +
-      '不需要联网、不需要 API Key、也不产生任何费用。' +
-      '这一版没有「生成菜单 / 更换食材」的入口。' +
-      '</div></div>';
-  }
-
-  /* ---- 首屏 ---- */
-  html += '<section class="hero"><div class="wrap">';
-  html += '<div class="heroL">';
-  html += '<span class="eyebrow"><i class="live"></i>' +
-    (hi ? '今日 ' + hi.wk + ' · ' + hi.en : 'AI 主厨 · 每日新鲜定制') + '</span>';
-  /* 标题拆成两个 block 行，高亮词用 .hlw（不能复用 .hl，那是营养亮点列表的 flex 行） */
-  html += '<h1><span class="l">零油烟 · <span class="hlw">地中海</span></span>' +
-    '<span class="l">健康午餐计划</span></h1>';
-  html += '<p class="lead">好食材 · 好身体 · 更有活力的每一天</p>';
-  html += '<div class="chips">';
-  html += '<span class="chip">' + (hi ? hi.tn : '鱼虾鸡肉') + ' · 每日一种优质蛋白</span>';
-  html += '<span class="chip">一人一份 · 精准到克</span>';
-  html += '<span class="chip">' + COMPANY + ' 人公司餐可换算</span>';
-  html += '<span class="chip">蒸煮烤凉拌 · 几乎无油烟</span>';
-  html += '</div>';
-  html += '<div class="cta">';
-  html += '<button class="btn" data-act="genweek"' + (state.busy ? ' disabled' : '') + '>' +
-    (state.busy ? '<span class="spin"></span> 正在生成…' : (days.length ? '重新生成本周菜单' : '生成本周菜单')) + '</button>';
-  html += '<button class="btn ghost" data-act="today">今天吃什么</button>';
-  html += '<button class="btn ghost" data-act="goto" data-arg="about">了解营养理念</button>';
-  html += '</div>';
-  html += '</div>';
-
-  html += '<div class="heroart"><div class="frame"' +
-    (hi && thumbUrl(hi) ? ' style="background-image:url(' + esc(thumbUrl(hi)) + ')"' : '') + '>';
-  if (hi && thumbUrl(hi)) html += '<img src="' + esc(imgDisplaySrc(hiImg, thumbUrl(hi))) +
-    '" data-src="' + esc(hiImg) +
-    '" data-day="' + esc(hi.id) + '" alt="' + esc(hi.title) + '">';
-  else html += phHTML(hi ? hi.type : 'veg');
-  html += '</div>';
-  if (hi) html += '<div class="bubble">' + esc(hi.title) +
-    '<div class="sub">' + esc(hi.sub || '') + '</div></div>';
-  if (hi) {
-    html += '<div class="metrics">' +
-      metric(hi.kcal, 'kcal', '千卡') + metric(hi.p, 'g', '蛋白质') +
-      metric(hi.c, 'g', '碳水') + metric(hi.f, 'g', '脂肪') + metric(hi.fb, 'g', '膳食纤维') +
-      '</div>';
-  }
-  html += '</div></div></section>';
-
-  /* ---- 6 大好处（可折叠：默认展开，点标题收起）---- */
-  html += '<section class="sec"><div class="wrap">';
-  html += '<details class="bene" open><summary><span>地中海饮食的 6 大好处</span>' +
-    '<svg class="cv" width="16" height="16" viewBox="0 0 24 24" fill="none" ' +
-    'stroke="currentColor" stroke-width="2" stroke-linecap="round" ' +
-    'stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></summary>' +
-    '<div class="bene-in"><div class="benefits">' + [
-    ['保护心血管', '橄榄油 · 深海鱼', 'M12 21s-7.5-4.7-7.5-10A4.5 4.5 0 0 1 12 8.2 4.5 4.5 0 0 1 19.5 11c0 5.3-7.5 10-7.5 10z'],
-    ['提升大脑功能', '优质脂肪 · 护神经', 'M9 4a4 4 0 0 0-4 4 3.4 3.4 0 0 0-1 6.6V17a3 3 0 0 0 3 3h1V4zM15 4a4 4 0 0 1 4 4 3.4 3.4 0 0 1 1 6.6V17a3 3 0 0 1-3 3h-1V4z'],
-    ['增强免疫力', '多色蔬果 · 抗氧化', 'M12 3l7 3v5.5c0 4.4-3 7.6-7 9.5-4-1.9-7-5.1-7-9.5V6z'],
-    ['维持健康体重', '高纤高蛋白 · 更耐饿', 'M5 7h14l-1.2 12.2a1.5 1.5 0 0 1-1.5 1.3H7.7a1.5 1.5 0 0 1-1.5-1.3zM9 7a3 3 0 0 1 6 0'],
-    ['延缓衰老', '多酚 · 抗炎', 'M12 3v3M12 18v3M3 12h3M18 12h3M6 6l2 2M16 16l2 2M6 18l2-2M16 8l2-2M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z'],
-    ['提升工作效率', '血糖平稳 · 不犯困', 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2']
-  ].map(([t, s, d]) =>
-    '<div class="benefit"><div class="ic"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" ' +
-    'stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="' + d + '"/></svg></div>' +
-    '<div class="t">' + t + '</div><div class="d">' + s + '</div></div>').join('') + '</div>';
-  html += '</div></details></div></section>';
-
-  /* ---- 本周菜单 ---- */
-  html += '<section class="sec"><div class="wrap">';
-  html += '<div class="sec-head"><h2>主厨推荐 · 本周菜单</h2>';
-  html += '<span class="sub">' + (m ? esc(m.name || '') : '') + (fb ? ' · 内置保底菜谱' : '') + '</span></div>';
-
-  if (planKeys.length > 1) {
-    html += '<div class="planbar"><div class="seg">' + planKeys.map((k) =>
-      '<button data-act="plan" data-arg="' + k + '" class="' + (state.plan === k ? 'on' : '') + '">' +
-      esc((PLANS[k] || FALLBACK[k] || {}).name || ('方案 ' + k)) + '</button>').join('') + '</div>';
-    html += '<span class="meta">' + (fb ? '点右上角「生成本周菜单」让 AI 联网重做一份' : '已由 AI 联网生成') + '</span></div>';
-  } else {
-    html += '<div class="planbar"><span class="meta">' + (fb ? '内置保底菜谱' : '已由 AI 联网生成') + '</span></div>';
-  }
-
-  /* 生成失败过就常驻一条提示 —— 关掉进度浮层后也还看得见 */
-  html += errBarHTML();
-
-  if (days.length) {
-    html += weekAggHTML(days);
-    html += filterBarHTML(days);
-  }
-
-  if (!days.length) {
-    html += '<div class="empty"><div class="eic">' +
-      '<svg width="30" height="30" viewBox="0 0 24 24" fill="none" ' +
-      'stroke="#3E9E6A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">' +
-      '<path d="M3.5 11h17a8.5 8.5 0 0 1-17 0zM6 19.5h12"/></svg></div>' +
-      '<div class="et">还没有菜谱</div>' +
-      '<div class="ed">点下面的按钮，AI 主厨会联网检索真实做法，' +
-      '为周一到周五各设计一份一人份午餐。</div>' +
-      '<div class="ehint"><span>每天一个荤菜</span><span>精准到克</span>' +
-      '<span>蒸煮烤凉拌 · 几乎无油烟</span><span>约 1–3 分钟</span></div>' +
-      '<button class="btn" data-act="genweek">开始生成</button></div>';
-  } else {
-    const shown = filterDays(days);
-    if (!shown.length) {
-      html += '<div class="empty"><div class="et">筛选后没有符合条件的午餐</div>' +
-        '<div class="ed">当前条件把 ' + days.length + ' 天全排除了，换个条件或重置。</div>' +
-        '<button class="btn" data-act="freset">重置筛选</button></div>';
-    } else {
-      /* 传原始下标：isToday 是按「第几天」判的，不能传筛选后的序号 */
-      html += '<div class="days">' + shown.map((d) => dayCard(d, days.indexOf(d))).join('') + '</div>';
-      if (shown.length < days.length) {
-        html += '<div class="fnote">已筛选：显示 ' + shown.length + ' / ' + days.length +
-          ' 天，隐藏了 ' + (days.length - shown.length) + ' 天。' +
-          '<button class="freset" data-act="freset">重置筛选</button></div>';
-      }
-    }
-  }
-  html += '</div></section>';
-
-  /* 常驻免责说明：首次还有一次弹窗，见 legalHTML() */
-  html += '<section class="sec" style="padding-top:0"><div class="wrap"><div class="disc">' +
-    '<b>AI 生成菜谱仅供参考，不构成医疗或营养建议。</b>' +
-    '菜谱由大模型联网检索公开做法后生成，克重与营养为估算值；' +
-    '如有慢性病、孕期哺乳期或食物过敏，请先咨询医生或注册营养师再照做。</div>' +
-    '</div></section>';
-
-  $('#app').innerHTML = html;
 }
 
 function metric(v, u, l) {
@@ -2987,14 +2976,10 @@ function dayCard(d, i) {
     '</div></button>';
 }
 
-function renderDay() {
-  const d = day(state.plan, state.dayId);
-  if (!d) {
-    $('#app').innerHTML = '<div class="wrap"><div class="empty" style="margin-top:40px">' +
-      '<div class="et">没找到这一天的菜谱</div><div class="ed">请先回到首页生成五天菜单。</div>' +
-      '<button class="btn" data-act="goto" data-arg="home">返回首页</button></div></div>';
-    return;
-  }
+function renderHome() {
+  const planKeys = Object.keys(PLANS).length ? Object.keys(PLANS) : Object.keys(FALLBACK);
+  const d = day(state.plan, selectedDayId());
+  if (!d) { renderHomeEmpty(); return; }
   /* 同 dayCard：src 只表示 AI 图地址，空串时用本地占位图顶上 */
   const src = imgUrl(state.plan, d.id);
   const serv = d.servings || COMPANY;
@@ -3005,13 +2990,30 @@ function renderDay() {
 
   let html = '<div class="wrap">';
 
-  html += '<div class="dbar">' +
-    '<button class="back" data-act="goto" data-arg="home">' +
-    '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
-    'stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg> 返回菜单</button>' +
-    '<span class="spacer"></span>' +
-    '<button class="btn ghost sm" data-act="regen" data-arg="' + d.id + '">这道不满意？换一道</button>' +
-    '</div>';
+  /* 只读版必须说明「为什么没有生成按钮」，否则用户只会觉得页面坏了 */
+  if (READONLY) {
+    html += '<div class="robar">' +
+      '这是 <b>只读版</b>：菜单已由 AI 主厨生成好并打包在这里，打开即可查看，' +
+      '不需要联网、不需要 API Key、也不产生任何费用。' +
+      '这一版没有「生成菜单 / 更换食材」的入口。</div>';
+  }
+  /* 生成失败过就常驻一条提示 —— 关掉进度浮层后也还看得见 */
+  html += errBarHTML();
+
+  /* 方案 A/B 切换：原来在首页的周视图里，周视图收掉后挪到当日菜谱顶部。
+     只有一个方案时不显示，避免多一行没用的东西。 */
+  if (planKeys.length > 1) {
+    html += '<div class="dbar"><div class="seg">' + planKeys.map((k) =>
+      '<button data-act="plan" data-arg="' + k + '" class="' + (state.plan === k ? 'on' : '') + '">' +
+      esc((PLANS[k] || FALLBACK[k] || {}).name || ('方案 ' + k)) + '</button>').join('') +
+      '</div><span class="spacer"></span>' +
+      '<button class="btn ghost sm" data-act="regen" data-arg="' + d.id + '">这道不满意？换一道</button>' +
+      '</div>';
+  } else {
+    html += '<div class="dbar"><span class="spacer"></span>' +
+      '<button class="btn ghost sm" data-act="regen" data-arg="' + d.id + '">这道不满意？换一道</button>' +
+      '</div>';
+  }
 
   html += '<div class="dgrid">';
 
@@ -3067,6 +3069,14 @@ function renderDay() {
   if (d.sub) html += '<div class="dsub">' + esc(d.sub) + '</div>';
   html += '<div class="tags">' + (d.tags || []).map((t) => '<span class="pill green">✓ ' + esc(t) + '</span>').join('') +
     '<span class="pill blue">全程少油烟</span></div>';
+  /* 忌口提示：原来是首页周视图的筛选条在提示「哪几天撞了忌口」。
+     周视图收掉之后改成直接标在当天菜谱上 —— 打开这一天就看得见，比原来更及时。 */
+  const avoidNow = avoidHits(d);
+  if (avoidNow.length) {
+    html += '<div class="disc" style="margin-top:14px">⚠️ 这一天含有你的忌口：<b>' +
+      esc(avoidNow.join('、')) + '</b>。可在「设置 → 忌口」里改，' +
+      '或点下面的「让 AI 换一道」重新做。</div>';
+  }
   html += '<div class="nutri">' +
     ncell(d.kcal, 'kcal', '千卡') + ncell(d.p, 'g', '蛋白质') + ncell(d.c, 'g', '碳水') +
     ncell(d.f, 'g', '脂肪') + ncell(d.fb, 'g', '膳食纤维') + '</div>';
@@ -3177,14 +3187,234 @@ function renderDay() {
     '<button class="btn ghost" data-act="print" data-arg="' + d.id + '">打印菜谱</button>' +
     '<button class="btn ghost" data-act="shop">查看采购清单</button></div>';
 
+  /* 地中海饮食的 6 大好处 —— 用户要求放在当日菜谱的最底部 */
+  html += benefitsHTML();
+
   html += '</div>';
   $('#app').innerHTML = html;
+}
+
+/* 地中海饮食的 6 大好处 —— 按用户要求放在**当日菜谱的最底部**。
+   原来在首页顶部，会把「今天吃什么」挤到第二屏。 */
+function benefitsHTML() {
+  const items = [
+    ['保护心血管', '橄榄油 · 深海鱼', 'M12 21s-7.5-4.7-7.5-10A4.5 4.5 0 0 1 12 8.2 4.5 4.5 0 0 1 19.5 11c0 5.3-7.5 10-7.5 10z'],
+    ['提升大脑功能', '优质脂肪 · 护神经', 'M9 4a4 4 0 0 0-4 4 3.4 3.4 0 0 0-1 6.6V17a3 3 0 0 0 3 3h1V4zM15 4a4 4 0 0 1 4 4 3.4 3.4 0 0 1 1 6.6V17a3 3 0 0 1-3 3h-1V4z'],
+    ['增强免疫力', '多色蔬果 · 抗氧化', 'M12 3l7 3v5.5c0 4.4-3 7.6-7 9.5-4-1.9-7-5.1-7-9.5V6z'],
+    ['维持健康体重', '高纤高蛋白 · 更耐饿', 'M5 7h14l-1.2 12.2a1.5 1.5 0 0 1-1.5 1.3H7.7a1.5 1.5 0 0 1-1.5-1.3zM9 7a3 3 0 0 1 6 0'],
+    ['延缓衰老', '多酚 · 抗炎', 'M12 3v3M12 18v3M3 12h3M18 12h3M6 6l2 2M16 16l2 2M6 18l2-2M16 8l2-2M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z'],
+    ['提升工作效率', '血糖平稳 · 不犯困', 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2'],
+  ];
+  let h = '<section class="sec"><div class="wrap">';
+  h += '<details class="bene" open><summary><span>地中海饮食的 6 大好处</span>' +
+    '<svg class="cv" width="16" height="16" viewBox="0 0 24 24" fill="none" ' +
+    'stroke="currentColor" stroke-width="2" stroke-linecap="round" ' +
+    'stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></summary>' +
+    '<div class="bene-in"><div class="benefits">' + items.map(([t, s, d]) =>
+      '<div class="benefit"><div class="ic"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" ' +
+      'stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="' + d + '"/></svg></div>' +
+      '<div class="t">' + t + '</div><div class="d">' + s + '</div></div>').join('') + '</div>';
+  h += '</div></details></div></section>';
+  return h;
+}
+
+/* 还没有菜单（或这一天不在菜单里）时的首页空态。
+   ⚠️ 只读版必须说清「为什么没有生成按钮」，否则用户只会觉得页面坏了。 */
+function renderHomeEmpty() {
+  const fb = isFallback(state.plan);
+  let h = '<div class="wrap">';
+  if (READONLY) {
+    h += '<div class="robar">' +
+      '这是 <b>只读版</b>：菜单已由 AI 主厨生成好并打包在这里，打开即可查看，' +
+      '不需要联网、不需要 API Key、也不产生任何费用。' +
+      '这一版没有「生成菜单 / 更换食材」的入口。</div>';
+  }
+  h += '<section class="sec" style="margin-top:26px">';
+  h += '<div class="sec-head"><h2>今日菜单</h2><span class="sub">' +
+    (fb ? '内置保底菜谱' : 'AI 主厨 · 每日新鲜定制') + '</span></div>';
+  h += errBarHTML();
+  h += '<div class="empty"><div class="eic">' +
+    '<svg width="30" height="30" viewBox="0 0 24 24" fill="none" ' +
+    'stroke="#3E9E6A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">' +
+    '<path d="M3.5 11h17a8.5 8.5 0 0 1-17 0zM6 19.5h12"/></svg></div>' +
+    '<div class="et">还没有菜谱</div>' +
+    '<div class="ed">点下面的按钮，AI 主厨会联网检索真实做法，' +
+    '为周一到周五各设计一份一人份午餐。</div>' +
+    '<div class="ehint"><span>每天一个荤菜</span><span>精准到克</span>' +
+    '<span>蒸煮烤凉拌 · 几乎无油烟</span><span>约 1–3 分钟</span></div>' +
+    '<button class="btn" data-act="genweek">开始生成</button></div>';
+  h += '</section></div>';
+  $('#app').innerHTML = h;
 }
 
 function ncell(v, u, l) {
   const val = (typeof v === 'number') ? (v >= 100 ? Math.round(v) : Math.round(v * 10) / 10) : v;
   return '<div class="n"><div class="v">' + esc(val) + '<span class="u">' + u + '</span></div>' +
     '<div class="l">' + l + '</div></div>';
+}
+
+/* ---------- 参考菜价（AI 联网估算 + 四平台官方入口） ---------- */
+/* ⚠️ 实测（真实 Chrome 逐个打开，2026-10-09）：这四家**都没有可用的网页版商品搜索**，
+   所以只能给「官方入口」，让用户点进去自己搜 —— 绝不能伪造成「搜索深链」，那是假链接。
+     · 盒马     www.freshippo.com          首页只有页脚，无搜索框；/search* 一律跳 error.taobao.com
+     · 多点     i.dmall.com/newDmall.html  消费端 H5，渲染后 0 个输入框、要登录
+                                            （dmall.com 是「多点数智」企业官网，不是店铺）
+     · 美菜     www.meicai.cn              首页路由只有 #/download_app 等，根本没有搜索路由
+     · 多多买菜 mobile.yangkeduo.com       search_result.html 直接跳登录页
+   这四个入口都实测「能打开」，这是能给的最诚实的东西。 */
+const PRICE_PLATFORMS = [
+  { k:'hema',   n:'盒马',     u:'https://www.freshippo.com/',        t:'官网 · 在 App 内搜索' },
+  { k:'dmall',  n:'多点',     u:'https://i.dmall.com/newDmall.html', t:'H5 · 需登录' },
+  { k:'meicai', n:'美菜',     u:'https://www.meicai.cn/',            t:'官网 · 面向商户' },
+  { k:'pdd',    n:'多多买菜', u:'https://mobile.yangkeduo.com/',     t:'拼多多 H5 · 需登录' }
+];
+
+/* 参考价统一按「元/500g」（也就是常说的「一斤」），最符合买菜习惯 */
+function priceOf(name) {
+  const p = state.prices ? state.prices[name] : null;
+  return (typeof p === 'number' && isFinite(p) && p > 0) ? p : null;
+}
+function priceMoney(v) { return v == null ? '—' : (v >= 100 ? v.toFixed(0) : v.toFixed(1)); }
+/** 参考小计（元）：单价 × 总克重 ÷ 500 */
+function priceSubtotal(name, grams) {
+  const p = priceOf(name);
+  return p == null ? null : (p * num(grams) / 500);
+}
+/* ⚠️ 调味料不计价：按「元/500g」给一撮盐、几滴橄榄油估价毫无意义
+   （一瓶能用一年），算进去只会把合计虚高 —— 实测 38 项里 14 项是调味料，
+   能把合计从 ~¥2400 抬到 ¥3438。所以只对**能吃的食材**估价。 */
+function priceItems(items) { return (items || []).filter((i) => i.c !== 'season'); }
+/** 汇总：{sum 合计元, known 已估项数, miss 未估项数}（只看非调味料） */
+function priceTotal(items, serv) {
+  const list = priceItems(items);
+  let sum = 0, known = 0;
+  list.forEach((i) => {
+    const s = priceSubtotal(i.n, i.per * serv);
+    if (s == null) return;
+    sum += s; known++;
+  });
+  return { sum: sum, known: known, miss: list.length - known };
+}
+/** 模型偶尔会把食材名改短（「青花鱼（鲭鱼，净肉）」→「青花鱼」），按「核心名」兜一次 */
+function pickPrice(want, table) {
+  if (table[want] != null) return table[want];
+  const cw = coreName(want);
+  const keys = Object.keys(table);
+  let k = keys.filter((x) => coreName(x) === cw)[0];
+  if (k) return table[k];
+  k = keys.filter((x) => want.indexOf(x) === 0 || x.indexOf(cw) === 0)[0];
+  return k ? table[k] : null;
+}
+
+const PRICE_SYSTEM = [
+  '你是生鲜采购比价助手。用户会给你一批食材名，请**联网检索**它们在普通超市或主流生鲜电商上的零售价。',
+  '规则：',
+  '1. 单位一律换算成 **元/500g**（也就是「一斤」）。',
+  '2. 取一线城市（北京 / 上海）**常见零售价的中间值**，不要用促销价、也不要用批发价。',
+  '3. 食材名里带括号的说明（如「净肉」「去皮」「切段」）表示**可食部**，按可食部估。',
+  '4. 拿不准就给合理区间中值，**每项都要给数，不要留空、不要写「约」**。',
+  '5. 只输出 JSON，不要任何解释文字。格式：',
+  '{"items":[{"n":"青花鱼","p":12.5}]}',
+  '其中 n 必须**原样照抄**我给的食材名（一个字都不能改），p 是数字。'
+].join('\n');
+
+function buildPricePrompt(names) {
+  return '食材清单（共 ' + names.length + ' 项）：\n' +
+    names.map((n, i) => (i + 1) + '. ' + n).join('\n') +
+    '\n\n请联网检索，按系统消息里的 JSON 格式返回每项的参考零售价（元/500g）。';
+}
+
+/** 「去别的平台比价」浮层 */
+function pricePopHTML(kw) {
+  return '<div class="ppmask" data-act="closepricepop"></div>' +
+    '<div class="pricepop" role="dialog" aria-label="去别的平台比价">' +
+    '<h4>去别的平台搜「' + esc(kw) + '」</h4>' +
+    '<p class="pn">⚠️ 盒马 / 多点 / 美菜 / 多多买菜 <b>都没有网页版商品搜索</b>（都是 App 优先），' +
+    '所以这里给的是<b>官方入口</b>，点开后在站内或 App 里搜索。食材名已复制到剪贴板，粘贴即可。</p>' +
+    '<div class="pplist">' + PRICE_PLATFORMS.map((p) =>
+      '<a href="' + p.u + '" target="_blank" rel="noopener noreferrer">' +
+      '<b>' + esc(p.n) + ' ↗</b><span>' + esc(p.t) + '</span></a>').join('') + '</div>' +
+    '<div class="ppacts">' +
+      '<button class="btn sm" data-act="copykw" data-arg="' + esc(kw) + '">复制食材名</button>' +
+      '<button class="btn ghost sm" data-act="closepricepop">关闭</button>' +
+    '</div></div>';
+}
+
+/** 复制一段文字（⚠️ file:// 下 navigator.clipboard 常不可用，必须有 execCommand 兜底） */
+function copyText(txt, doneMsg) {
+  const ok = () => toast(doneMsg || '已复制');
+  const fail = () => toast('复制失败，请手动长按选择文字');
+  const legacy = () => {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = txt;
+      ta.setAttribute('readonly', '');
+      ta.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0';
+      document.body.appendChild(ta);
+      ta.select();
+      ta.setSelectionRange(0, txt.length);
+      const good = document.execCommand('copy');
+      document.body.removeChild(ta);
+      if (good) ok(); else fail();
+    } catch (e) { fail(); }
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(txt).then(ok, legacy);
+  } else legacy();
+}
+
+/** 直连模式走 chatJson；后端模式走 /api/price（后端同样用联网检索） */
+async function fetchPricesVia(names) {
+  const table = {};
+  let sources = [];
+  if (USE_BACKEND) {
+    const d = await request('/api/price', 'POST', { names: names });
+    ((d && d.items) || []).forEach((it) => {
+      const n = String((it && it.n) || '').trim();
+      const v = Number(it && it.p);
+      if (n && isFinite(v) && v > 0) table[n] = v;
+    });
+    sources = (d && d.sources) || [];
+  } else {
+    const r = await chatJson(PRICE_SYSTEM, buildPricePrompt(names), { search:true, temperature:0.2 });
+    const arr = (r.json && (r.json.items || r.json.prices || r.json.list)) || [];
+    arr.forEach((it) => {
+      if (!it) return;
+      const n = String(it.n || it.name || '').trim();
+      const raw = (it.p != null) ? it.p : it.price;
+      const v = Number(raw);
+      if (n && isFinite(v) && v > 0) table[n] = v;
+    });
+    sources = r.sources || [];
+  }
+  return { table: table, sources: sources };
+}
+
+/** 联网获取参考价。默认只补「还没估过的」；全都有值时点一下＝整体刷新。 */
+async function doFetchPrices(force) {
+  const { items } = shopData();
+  if (!items.length) { toast('采购清单还是空的，先生成菜单'); return; }
+  const all = priceItems(items).map((i) => i.n);
+  const missing = all.filter((n) => priceOf(n) == null);
+  const need = (missing.length && !force) ? missing : all;
+  if (!need.length) return;
+
+  busy('获取参考价', '正在联网检索 ' + need.length + ' 项食材的参考价…', 15);
+  try {
+    const r = await fetchPricesVia(need);
+    let got = 0;
+    need.forEach((n) => {
+      const v = pickPrice(n, r.table);
+      if (v != null) { state.prices[n] = Math.round(v * 10) / 10; got++; }
+    });
+    writePrices();
+    state.busy = null;
+    render();
+    toast(got ? ('已更新 ' + got + '/' + need.length + ' 项参考价（AI 估算，非实时）')
+              : '没拿到参考价，稍后再试');
+  } catch (e) {
+    busyErr(e);
+  }
 }
 
 /* ---------- 采购清单 ---------- */
@@ -3228,6 +3458,8 @@ function renderShop() {
   let html = '<div class="wrap"><section class="sec" style="margin-top:26px">';
   html += '<div class="sec-head"><h2>采购清单</h2>' +
     '<span class="sub">' + (m ? esc(m.name || '') : '') + ' · ' + days + ' 天 · 按 ' + serv + ' 人份</span></div>';
+  /* 一周营养汇总：原来在首页周视图里，周视图收掉后搬到采购清单页顶部 */
+  html += weekAggHTML(picked);
 
   if (!all.length) {
     html += '<div class="empty"><div class="et">还没有菜单</div>' +
@@ -3277,8 +3509,18 @@ function renderShop() {
   html += '<div class="shopnote">已按 <b>' + serv + ' 人份</b> 汇总 <b>' + esc(label) +
     '</b> 的食材，合计约 <b>' + (r1(grand / 1000)).toFixed(1) + ' kg</b>。' +
     '同类食材在不同天出现时会自动合并；调味料按一人份累计，实际调味可按口味增减。</div>';
+  const pt = priceTotal(items, serv);
+  const nPriced = priceItems(items).length;
   html += '<div class="shopacts"><button class="btn navy" data-act="copyshop">复制购物清单</button>' +
+    '<button class="btn ghost" data-act="getprice">' +
+      (pt.known ? (pt.known < nPriced ? '补齐参考价' : '刷新参考价') : '获取参考价') + '</button>' +
     '<span class="shoptip">复制成纯文本，直接粘到微信、备忘录或买菜 App 里。</span></div>';
+  /* 参考价汇总。⚠️ 必须写明「AI 估算、非实时」—— 这是估算值，不能让人当成实时报价。 */
+  html += '<div class="pricebar">' +
+    '<span>参考价合计约 <b>' + (pt.known ? ('¥' + pt.sum.toFixed(1)) : '—') + '</b>' +
+    '（按 ' + serv + ' 人份，' + pt.known + '/' + nPriced + ' 项食材已估，调味料不计）</span>' +
+    '<span class="pw">⚠️ 参考价由 AI 联网估算，<b>不是实时价</b>，仅供预算参考。' +
+    '每项食材右侧的 🔍 可打开「盒马 / 多点 / 美菜 / 多多买菜」官方入口去比价。</span></div>';
 
   CAT_ORDER.forEach((c) => {
     const list = items.filter((i) => i.c === c).sort((a, b) => b.per - a.per);
@@ -3293,9 +3535,19 @@ function renderShop() {
       '<span class="cn">' + st.label + '</span><span class="cs">小计 ' +
       (r1(sub / 1000)).toFixed(2) + ' kg</span></div>';
     list.forEach((i) => {
+      const season = (i.c === 'season');
+      const up = season ? null : priceOf(i.n);
+      const st = up == null ? null : priceSubtotal(i.n, i.per * serv);
       html += '<div class="shoprow"><span class="nm">' + esc(i.n) + '</span>' +
         '<span class="per">一人份 ' + gfmt(i.per) + ' × ' + serv + ' 份 · ' + i.days.length + ' 天用</span>' +
-        '<span class="g">' + gfmt(i.per * serv) + '</span></div>';
+        '<span class="pp' + (up == null ? ' none' : '') + '">' +
+          (season ? '调味料 · 不计价'
+            : (up == null ? '参考价 未估'
+              : '¥' + priceMoney(up) + '/500g · <b>¥' + st.toFixed(1) + '</b>')) + '</span>' +
+        '<span class="g">' + gfmt(i.per * serv) + '</span>' +
+        '<button class="pq" data-act="shopsearch" data-arg="' + esc(i.n) + '"' +
+          ' aria-label="在盒马、多点、美菜、多多买菜搜 ' + esc(i.n) + '"' +
+          ' title="去别的平台比价">🔍</button></div>';
     });
     html += '</div>';
   });
@@ -3303,47 +3555,7 @@ function renderShop() {
   $('#app').innerHTML = html;
 }
 
-/* ---------- 营养理念 / 设置 ---------- */
-function renderAbout() {
-  let html = '<div class="wrap"><section class="sec" style="margin-top:26px">';
-  html += '<div class="sec-head"><h2>营养理念</h2><span class="sub">AI 主厨遵循的硬性准则</span></div>';
-  html += '<div class="aboutgrid">';
-
-  html += '<div class="card ab"><h4>地中海饮食结构</h4><ul>' +
-    '<li><b>大量深色蔬菜</b>：每餐蔬菜合计 250–350 g，羽衣甘蓝、菠菜、芥蓝、西兰花、彩椒、菌菇轮换。</li>' +
-    '<li><b>全谷杂豆主食</b>：藜麦、糙米、大麦、燕麦米、全麦意面、鹰嘴豆、白腰豆、小扁豆。</li>' +
-    '<li><b>健康脂肪</b>：特级初榨橄榄油、坚果、牛油果、种子；橄榄油尽量出锅后再淋。</li>' +
-    '<li><b>少盐少重口</b>：用柠檬、大蒜、香草、醋、第戎芥末调味。</li>' +
-    '<li><b>红肉少量</b>：牛猪选最瘦部位，奶制品少量。</li></ul></div>';
-
-  html += '<div class="card ab"><h4>最少油烟（硬性要求）</h4><ul>' +
-    '<li>只允许 <b>烤箱烘烤、蒸、水煮、白灼、焯水、炖煮、凉拌</b>。</li>' +
-    '<li class="bad">禁止爆炒、煎、炸、炝锅、大火热油等任何起油烟的做法。</li>' +
-    '<li>同盘烤制、一锅出，方便 16 人份批量备餐。</li>' +
-    '<li>温度与时间必须来自联网检索到的真实菜谱，并附上来源链接。</li></ul></div>';
-
-  html += '<div class="card ab"><h4>荤菜与选材</h4><ul>' +
-    '<li>每天<b>一个荤菜</b>，周一鱼 → 周二虾 → 周三鸡肉 → 周四牛肉 → 周五猪肉。</li>' +
-    '<li><b>海鱼选性价比高的</b>：青花鱼、沙丁鱼、秋刀鱼、龙利鱼柳。不用三文鱼、鳕鱼等高价鱼。</li>' +
-    '<li><b>海虾选性价比高的</b>：冷冻南美白虾仁、北极甜虾。</li>' +
-    '<li>其余食材一律选营养最全面、营养密度最高的品种。</li></ul></div>';
-
-  html += '<div class="card ab"><h4>克重与份量</h4><ul>' +
-    '<li>所有克重为<b>一人份可食部生重</b>（净重），含调味料。</li>' +
-    '<li>荤菜蛋白 100–150 g、全谷杂豆主食生重 45–60 g、蔬菜 250–350 g。</li>' +
-    '<li>一人份总重通常落在 600–900 g。</li>' +
-    '<li>每样非调味食材都给 2–3 个同类替代项，可按营养当量折算更换。</li></ul></div>';
-
-  html += '<div class="card ab"><h4>如何保证不编造</h4><ul>' +
-    '<li>每道菜开做前，主厨<b>必须先联网检索</b>真实存在的公开菜谱。</li>' +
-    '<li>检索不到依据的做法不写；温度时间以检索结果为准。</li>' +
-    '<li>生成后校验：总重区间、蔬菜克重、步骤数量、是否拿到来源，不达标会提示。</li>' +
-    '<li>每份菜谱都附<b>实际检索到的来源链接</b>，可自行核对。</li></ul></div>';
-
-  html += '</div></section></div>';
-  $('#app').innerHTML = html;
-}
-
+/* ---------- 设置 ---------- */
 function renderSetup() {
   const own = (function () { try { return localStorage.getItem(LS.key) || ''; } catch (e) { return ''; } })();
   const ownImgKey = (function () { try { return localStorage.getItem(LS.imgkey) || ''; } catch (e) { return ''; } })();
@@ -3528,8 +3740,12 @@ function renderLayers() {
       '</div></div>';
   }
 
+  /* 「去别的平台比价」浮层。四家都**没有网页版商品搜索**（实测），所以这里只能给
+     官方入口 —— 文案必须说清楚，不能假装成能直接出结果的搜索深链。 */
+  if (state.pricePop) html += pricePopHTML(state.pricePop);
+
   /* 首次访问弹一次免责说明，点「我知道了」后写 localStorage 不再打扰 */
-  if (!state.seen && !state.busy && !state.sheet) html += legalHTML();
+  if (!state.seen && !state.busy && !state.sheet && !state.pricePop) html += legalHTML();
 
   if (state.toast) html += '<div class="toast">' + esc(state.toast) + '</div>';
   $('#layers').innerHTML = html;
@@ -3545,11 +3761,10 @@ let lastView = null;
 
 function render() {
   renderChrome();
-  if (state.view === 'home') renderHome();
-  else if (state.view === 'day') renderDay();
-  else if (state.view === 'shop') renderShop();
+  /* 'home' 与旧的 'day' 现在是一回事：首页直接就是「当日菜单」的完整菜谱 */
+  if (state.view === 'shop') renderShop();
   else if (state.view === 'setup') renderSetup();
-  else renderAbout();
+  else renderHome();
   renderLayers();
   ensureReal();                     // 真实照片模式：缺图的先补齐（异步，补完自动重渲染）
   ensureRealDetail();               // 详情页：补取 YouTube / 原站链接
@@ -4375,11 +4590,18 @@ function shopText() {
     const list = items.filter((i) => i.c === c).sort((a, b) => b.per - a.per);
     if (!list.length) return;
     lines.push('【' + ((CAT_STYLE[c] || {}).label || c) + '】');
-    list.forEach((i) => lines.push('  ' + i.n + '  ' + gfmt(i.per * serv)));
+    list.forEach((i) => {
+      const up = (i.c === 'season') ? null : priceOf(i.n);
+      const st = up == null ? null : priceSubtotal(i.n, i.per * serv);
+      lines.push('  ' + i.n + '  ' + gfmt(i.per * serv) +
+        (st == null ? '' : ('  参考价 ¥' + priceMoney(up) + '/500g ≈¥' + st.toFixed(1))));
+    });
     lines.push('');
   });
   const grand = items.reduce((s, i) => s + i.per * serv, 0);
-  lines.push('合计约 ' + (r1(grand / 1000)).toFixed(2) + ' kg');
+  const pt = priceTotal(items, serv);
+  lines.push('合计约 ' + (r1(grand / 1000)).toFixed(2) + ' kg' +
+    (pt.known ? ('　参考价合计约 ¥' + pt.sum.toFixed(1) + '（AI 估算，非实时）') : ''));
   return lines.join('\n');
 }
 
@@ -4449,8 +4671,8 @@ document.addEventListener('click', function (ev) {
 
   const nav = el.getAttribute('data-nav');
   if (nav) {
-    if (nav === 'shop' || nav === 'about' || nav === 'home' || nav === 'setup') {
-      state.view = nav; state.dayId = null; render();
+    if (nav === 'shop' || nav === 'home' || nav === 'setup') {
+      state.view = nav; state.dayId = null; state.pricePop = null; render();
     }
     return;
   }
@@ -4466,8 +4688,12 @@ document.addEventListener('click', function (ev) {
     case 'plan':
       if (arg && arg !== state.plan) { state.plan = arg; writePlan(); render(); }
       break;
+    /* 顶栏星期按钮；'open' 是旧的五天卡片点击，保留兼容 */
+    case 'day':
     case 'open':
-      state.dayId = arg; state.view = 'day'; render();
+      if (!arg) break;
+      state.homeDay = arg; state.dayId = arg; state.view = 'home';
+      writeHomeDay(); render();
       break;
     case 'goto':
       state.view = arg; if (arg !== 'day') state.dayId = null; render();
@@ -4476,7 +4702,8 @@ document.addEventListener('click', function (ev) {
       const ds = (menu(state.plan) || {}).days || [];
       if (!ds.length) { toast('还没有菜单，先生成一份吧'); break; }
       const t = ds[Math.min(todayIdx(), ds.length - 1)];
-      state.dayId = t.id; state.view = 'day'; render();
+      state.homeDay = t.id; state.dayId = t.id; state.view = 'home';
+      writeHomeDay(); render();
       break;
     }
     case 'print':
@@ -4484,6 +4711,22 @@ document.addEventListener('click', function (ev) {
       break;
     case 'copyshop':
       doCopyShop();
+      break;
+    case 'getprice':
+      if (!state.busy) doFetchPrices();
+      break;
+    case 'shopsearch':
+      if (arg) {
+        state.pricePop = arg;
+        copyText(arg, '已复制「' + arg + '」，到平台里粘贴搜索');
+        renderLayers();
+      }
+      break;
+    case 'copykw':
+      copyText(arg || '', '已复制「' + (arg || '') + '」');
+      break;
+    case 'closepricepop':
+      state.pricePop = null; renderLayers();
       break;
     case 'clearerr':
       state.lastErr = null; render();
@@ -4729,10 +4972,15 @@ async function syncFromBackend() {
 /* 暴露给测试与调试 */
 window.HL = {
   state, render, normalizeDay, buildDayPrompt, buildSwapPrompt, buildRegenPrompt,
+  /* 首页=当日菜单 / 顶栏星期切换（供测试与调试） */
+  weekNavHTML, selectedDayId, daysOf, benefitsHTML, writeHomeDay,
   imgPrompt, extractJson, normCat, cleanAlt, collectSources, menu, day, shopData,
   doGenWeek, doSwap, doRegen, doImage, openSwapSheet, openAddSheet, filterSheetList,
   avoidHits, avoidLine, weekAggHTML, filterDays, filterBarHTML, printHTML, doPrint,
   shopText, doCopyShop, legalHTML, avoidCardHTML, AVOID_OPTS, AVOID_LABEL, KCAL_BANDS,
+  /* 参考菜价（AI 估算 + 四平台官方入口，供测试与调试） */
+  PRICE_PLATFORMS, priceOf, priceMoney, priceSubtotal, priceTotal, priceItems, writePrices,
+  pricePopHTML, doFetchPrices, fetchPricesVia, buildPricePrompt, PRICE_SYSTEM, pickPrice, copyText,
   humanErr, errBarHTML,
   pickFromSheet, customFromSheet, changeServ, setServ, testKey, toast,
   DEFAULT_KEY, API_BASE, LS, IMG_TTL, chatJson, post, generateDay, generateImage,
