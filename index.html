@@ -401,6 +401,30 @@ main{padding-bottom:24px}
 }
 .step .st{font-size:14.5px;font-weight:600;color:var(--navy);margin-bottom:3px}
 .step .sd{font-size:13.5px;color:var(--ink-2);line-height:1.7}
+/* 步骤示意图。桌面在文字右侧、窄屏落到下方整宽。
+   还没生成时容器带 .loading → 显示呼吸中的骨架屏；
+   生成好之后队列给容器加 .on（隐藏骨架屏）、给 <img> 加 .is-in（淡入）。
+   生成失败则移除 .loading，容器整个收起，不会一直闪。 */
+.step .sbody{flex:1;min-width:0}
+.stimg{display:none}
+.stimg.loading,.stimg.on{
+  display:block;position:relative;margin-top:10px;border-radius:var(--r-sm);overflow:hidden;
+  background:var(--bg);aspect-ratio:4/3;
+}
+.stimg img{display:block;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .55s ease}
+.stimg img.is-in{opacity:1}
+.stimg .ssk{
+  position:absolute;inset:0;
+  background:linear-gradient(100deg,var(--bg) 30%,#fff 50%,var(--bg) 70%);
+  background-size:220% 100%;animation:skm 1.5s linear infinite;
+}
+.stimg.on .ssk{display:none}
+@keyframes skm{from{background-position:120% 0}to{background-position:-120% 0}}
+@media(min-width:760px){
+  .step .sbody{display:grid;grid-template-columns:minmax(0,1fr) 196px;column-gap:16px;align-items:start}
+  .step .sbody>.st,.step .sbody>.sd{grid-column:1}
+  .step .sbody>.stimg{grid-column:2;grid-row:1/span 2;margin-top:2px}
+}
 .refnote{display:flex;gap:9px;margin-top:14px;font-size:12.5px;color:var(--ink-3);line-height:1.65}
 
 .srcs{padding:16px 18px;display:flex;flex-wrap:wrap;gap:9px}
@@ -844,6 +868,10 @@ const FALLBACK   = W.fallback   || {};
 const LIB        = W.lib        || {};
 const CATS       = W.cats       || {protein:'优质蛋白',carb:'全谷杂豆主食',veg:'蔬菜',fat:'健康脂肪',season:'调味'};
 const CAT_ORDER  = W.catOrder   || ['protein','carb','veg','fat','season'];
+/* 食材库的二级细分（来自 library.SUBCATS）。
+   「更换食材」面板的筛选条**只列当前类别的细分** —— 用户明确要求
+   换蛋白质时不要再出现蔬菜、健康脂肪。 */
+const SUBCATS    = W.subcats    || {};
 const GRAM_RANGE = W.gramRange  || {protein:[80,200],carb:[30,160],veg:[20,220],fat:[5,60],season:[0.5,60]};
 const TOTAL_RANGE= W.totalRange || [550,1000];
 const VALID_HL   = new Set(W.validHlIcons || []);
@@ -953,6 +981,8 @@ const LS = { plan:'hl_plan', menus:'hl_menus', imgs:'hl_imgs', key:'hl_key', mod
              imgcache:'hl_imgcache',   // AI 配图缓存（data URL / 链接 + 时间戳）
              avoid:'hl_avoid',          // 忌口 / 过敏源（数组）
              kcaltgt:'hl_kcaltgt',      // 每日热量目标
+             stepimg:'hl_stepimg',      // '1' = 详细做法每一步配示意图 ｜ '0' = 只显示文字
+             stepcache:'hl_stepcache',  // 步骤示意图缓存（与菜图分开存，见 stepCacheKey）
              seen:'hl_seen' };          // 是否已看过首次免责提示
 const IMG_TTL = 6.5 * 864e5;      // 智谱 CDN 签名有效期 7 天，留半天余量
 
@@ -1201,8 +1231,129 @@ function buildSwapPrompt(day, ing, want) {
     wantLine + '\n\n' +
     '【更换前整道菜的一人份营养】' + JSON.stringify(oldMacros) + '\n' +
     '（你返回的 macros 必须是整道菜更换后的合计值，量级应与上面接近，不要只算某一样食材。）\n\n' +
-    '当前完整食材表（供你判断营养结构）：\n' + JSON.stringify(day.ing, null, 1) + '\n\n' +
+    '当前完整食材表（供你判断营养结构）：\n' + JSON.stringify(day.ing, null, 1) + '\n' +
+    swapStepsBlock(day) +
     '请联网检索后给出替换方案，严格按此 JSON 输出（只输出 JSON）：\n' + PROMPTS.swapSchema;
+}
+
+/* ---- 换食材之后「详细做法也要跟着改」的六个小工具 ----
+   ⚠️ 后端 app/chef.py 有同名同语义的实现（_core_name / _residual_steps / _subst_name /
+      prompts._steps_block）。两边必须给出一致的判定，改一边记得改另一边。
+   少了这套东西就会复现用户报的 bug：换了食材，第 6 步「拌合装盘」里还写着原来的鱼。 */
+
+const SWAP_PATCH_SCHEMA = '{\n' +
+  '  "steps_patch": [{"index": 受影响的步骤序号（从 1 开始，与上面 steps 的顺序一致）,\n' +
+  '                   "t": "改写后的步骤名（不需要改就留空字符串）",\n' +
+  '                   "d": "改写后的该步骤做法"}]\n' +
+  '}';
+
+/* 把当前做法步骤渲染成带序号的清单，喂给模型逐条比对。
+   ⚠️ 不喂这一段，模型看不见 steps，就只能改第一步（实测过）。 */
+function swapStepsBlock(day) {
+  const st = (day && day.steps) || [];
+  if (!st.length) return '';
+  const lines = st.map((s, i) => (i + 1) + '. 【' + (s.t || '') + '】' + (s.d || ''));
+  return '\n当前做法步骤（共 ' + st.length + ' 步，steps_patch 的 index 就是下面的序号）：\n' +
+    lines.join('\n') + '\n';
+}
+
+/* 应用 steps_patch：t（步骤名）和 d（正文）都要接 ——
+   原食材常常只出现在步骤名里（「腌制青花鱼」），只接 d 会漏。 */
+function applyStepsPatch(steps, patch) {
+  const out = (steps || []).map((s) => Object.assign({}, s));
+  for (const p of (patch || [])) {
+    if (!p || typeof p !== 'object') continue;
+    const pi = Math.round(num(p.index)) - 1;
+    if (!(pi >= 0 && pi < out.length)) continue;
+    const cleaned = cleanStep(p.t, p.d);
+    if (cleaned[0]) out[pi].t = cleaned[0];
+    if (cleaned[1]) out[pi].d = cleaned[1];
+  }
+  return out;
+}
+
+/* 步骤清单里的序号前缀：`1. ` / `6、` / `3)`。
+   ⚠️ `(?!\d)` 不能省 —— 正文里合法的「3.5 分钟」会被砍成「5 分钟」。 */
+const NUM_PREFIX = /^\s*\d{1,2}\s*[.、)）](?!\d)\s*/;
+
+/* 清洗模型抄回来的「清单格式」。
+   ⚠️ 提示词里的清单长这样：`1. 【腌制青花鱼】将青花鱼腌 10 分钟。`
+      模型会把 `【腌制青花鱼】` **同时**抄进 t 和 d 的开头，
+      界面上就成了「【烤鱼与菜】【烤鱼与菜】烤箱预热…」（真机实测过）。
+   ⚠️ 只砍「带括号或带冒号」的重复段 —— 裸标题也砍的话，
+      `烤` 会把 `烤箱预热` 砍成 `箱预热`。 */
+function cleanStep(title, body) {
+  let t = String(title == null ? '' : title).trim().replace(NUM_PREFIX, '').trim();
+  t = t.replace(/^[【】\[\]\s]+/, '').replace(/[【】\[\]\s]+$/, '').replace(/[。.：:]+$/, '');
+  let d = String(body == null ? '' : body).trim().replace(NUM_PREFIX, '').trim();
+  if (t) {
+    for (let n = 0; n < 3; n++) {                 /* 最多连砍三层，防死循环 */
+      let hit = '';
+      const pres = ['【' + t + '】', '[' + t + ']', t + '：', t + ':'];
+      for (let k = 0; k < pres.length; k++) {
+        if (d.indexOf(pres[k]) === 0) { hit = pres[k]; break; }
+      }
+      if (!hit) break;
+      d = d.slice(hit.length).replace(/^[：:\s]+/, '');
+    }
+  }
+  return [t, d];
+}
+
+/* 核心名：步骤里写的是简称（「青花鱼」），食材表里是全名（「青花鱼（鲭鱼，净肉）」）。 */
+const NAME_TAIL = /(柳|仁|丁|片|块|段|丝|末|碎|粒|条|圈)$/;
+function coreName(name) {
+  return String(name == null ? '' : name).split(/[（(]/)[0].trim().replace(NAME_TAIL, '');
+}
+
+/* 找出「换完之后仍然提到原食材」的步骤，返回 1 起序号（空数组 = 全改干净了）。 */
+function residualSteps(steps, oldName, newName) {
+  const oldCore = coreName(oldName);
+  const newCore = coreName(newName);
+  if (!oldCore || oldCore === newCore) return [];
+  const hits = [];
+  (steps || []).forEach((s, i) => {
+    let text = ((s && s.t) || '') + ' ' + ((s && s.d) || '');
+    /* 先把新食材的名字抹掉，免得「糙米 → 糙米饭」这种包含关系被误判 */
+    text = text.split(String(newName == null ? '' : newName)).join('');
+    text = text.split(newCore).join('');
+    if (text.indexOf(oldCore) >= 0) hits.push(i + 1);
+  });
+  return hits;
+}
+
+/* 最后的兜底：只把原食材的名字换成新食材，不动其余文字。
+   ⚠️ 熟成时间可能还是旧食材的，所以这只是「补改也失败」时的最后手段。 */
+function substStepNames(steps, oldName, newName, hits) {
+  const oldCore = coreName(oldName);
+  const out = (steps || []).map((s) => Object.assign({}, s));
+  (hits || []).forEach((i) => {
+    if (!(i >= 1 && i <= out.length)) return;
+    ['t', 'd'].forEach((k) => {
+      const txt = String(out[i - 1][k] == null ? '' : out[i - 1][k]);
+      if (oldCore && txt.indexOf(oldCore) >= 0) {
+        out[i - 1][k] = txt.split(oldCore).join(String(newName));
+      }
+    });
+  });
+  return out;
+}
+
+/* 补改：只让模型输出被点名的那几步 —— 否则它会借机重排整份步骤。 */
+async function swapStepsFix(day, ing, newName, hits) {
+  const st = (day && day.steps) || [];
+  const lines = (hits || []).map((i) => i + '. 【' + (((st[i - 1] || {}).t) || '') + '】' +
+    (((st[i - 1] || {}).d) || ''));
+  const user = '你上一次的替换方案漏改了步骤。\n\n' +
+    '食材已从「' + ing.n + '」换成「' + newName + '」，但下面这几步里**仍然写着原食材**：\n' +
+    lines.join('\n') + '\n\n' +
+    '请把这 ' + hits.length + ' 步按新食材「' + newName + '」重写（步骤名 t 和正文 d 都要改），' +
+    '熟成时间、火力、判断标准都要按新食材调整，改写后**不能再出现原食材的名字**。' +
+    '只输出这几步，不要输出别的步骤，不要改变步骤数量。严格按此 JSON 输出（只输出 JSON）：\n' +
+    SWAP_PATCH_SCHEMA;
+  /* 补改不需要再检索一遍：资料上一轮已经拿到了，省一次 429 风险 */
+  const r = await chatJson(PROMPTS.swapSystem, user, { search: false });
+  return ((r.json || {}).steps_patch) || [];
 }
 
 function buildRegenPrompt(day, oldTitle, feedback, planStyle, avoidTitles, servings, avoidText) {
@@ -1595,7 +1746,7 @@ function imgCachePut(day, url, dataUrl) {
    s3.siliconflow.cn 实测允许跨域读取，所以能 drawImage + toDataURL；
    任何一步失败（CORS、画布被污染、浏览器不支持）都返回空串，
    外层会退化成「只存链接」。 */
-function shrinkImage(url) {
+function shrinkImage(url, maxPx, quality) {
   return new Promise((resolve) => {
     const im = new Image();
     im.crossOrigin = 'anonymous';
@@ -1604,7 +1755,7 @@ function shrinkImage(url) {
     im.onload = () => {
       clearTimeout(timer);
       try {
-        const max = 640;
+        const max = maxPx || 640;
         const sc = Math.min(1, max / Math.max(im.naturalWidth, im.naturalHeight));
         const w = Math.max(1, Math.round(im.naturalWidth * sc));
         const h = Math.max(1, Math.round(im.naturalHeight * sc));
@@ -1613,7 +1764,7 @@ function shrinkImage(url) {
         const ctx = cv.getContext('2d');
         if (!ctx) return resolve('');
         ctx.drawImage(im, 0, 0, w, h);
-        const d = cv.toDataURL('image/jpeg', 0.82);
+        const d = cv.toDataURL('image/jpeg', quality || 0.82);
         resolve(d && d.length > 64 ? d : '');
       } catch (e) { resolve(''); }
     };
@@ -1621,17 +1772,17 @@ function shrinkImage(url) {
   });
 }
 
-/* 调 SiliconFlow 生成一张图。
-   ⚠️ 返回的链接**会过期**，所以顺手写进本地缓存；能压就再存一份 data URL。 */
-async function sfGenerate(day) {
+/* 调 SiliconFlow 出图，只负责拿回图片地址（不落盘）。
+   菜品主图与步骤示意图都走这里 —— 否则那段错误处理要抄两遍，迟早抄歪。 */
+async function sfRequest(prompt, seed) {
   const key = imgKey();
   if (!key) throw new ApiError('没有 SiliconFlow API Key —— 请在「设置 → AI 配图」里填一个。');
   const body = {
     model: imgModel(),
-    prompt: imgPrompt(day),
+    prompt: prompt,
     image_size: imgSize(),
     num_inference_steps: IMG_SF_STEPS,
-    seed: imgSeed(day)
+    seed: seed
   };
   let res;
   try {
@@ -1656,8 +1807,24 @@ async function sfGenerate(day) {
   }
   const url = (data && data.images && data.images[0] && data.images[0].url) || '';
   if (!url) throw new ApiError('SiliconFlow 没有返回图片地址。');
-  const dataUrl = await shrinkImage(url);
+  return url;
+}
+
+/* 菜品主图：640px / q82（卡片与详情页大图都用它）。
+   ⚠️ 链接**会过期**，所以顺手写进本地缓存；能压就再存一份 data URL。 */
+async function sfGenerate(day) {
+  const url = await sfRequest(imgPrompt(day), imgSeed(day));
+  const dataUrl = await shrinkImage(url, 640, 0.82);
   imgCachePut(day, url, dataUrl);
+  return dataUrl || url;
+}
+
+/* 步骤示意图：更小更省 —— 560px / q80，一张约 50KB。
+   步骤图张数是菜图的 6 倍，不压小一点 localStorage 很快就会满。 */
+async function sfGenerateStep(d, i, step) {
+  const url = await sfRequest(stepPrompt(d, step, i), stepSeed(d, i));
+  const dataUrl = await shrinkImage(url, 560, 0.80);
+  stepCachePut(d, i, step, url, dataUrl);
   return dataUrl || url;
 }
 
@@ -1672,6 +1839,127 @@ async function ensureAiImage(day) {
   const p = sfGenerate(day);
   imgInflight[k] = p;
   try { return await p; } finally { delete imgInflight[k]; }
+}
+
+/* ---------------------------------------------------------------------------
+   步骤配图（仅直连模式）
+
+   「详细做法」每一步配一张示意图，**只在打开详情页时按需生成** ——
+   一道菜 5~8 步，若在生成菜单时就全做，一次要多花 30 张图的时间与额度。
+
+   ⚠️ 必须走**同一条串行队列**（见 pumpImages）：SiliconFlow 并发 4 个有 3 个
+      直接 429，步骤图另起一套并发等于必然失败。
+   ⚠️ 缓存与菜图**分开存**（state.stepCache）：见 state 里的说明。
+   --------------------------------------------------------------------------- */
+
+/* 做法关键词 → 英文动作短语。
+   为什么不直接 trEn() 翻步骤文字：步骤里会出现「抓匀」「沥干」「改刀」这类
+   IMG_EN 覆盖不到的动词，翻不干净就会留下汉字 —— 扩散模型对中文几乎不理解
+   （实测拿纯中文提示词要「烤青花鱼美食照」，出来是一张毫不相干的动漫人物）。
+   所以这里改成**按关键词匹配一组写死的英文动作**，保证一个汉字都不会漏出去。
+   ⚠️ 顺序有意义：先匹配到的先用，所以「调酱汁」要排在「拌」之前。 */
+const STEP_ACT = [
+  [/调.*酱|酱汁|调味汁|油醋汁|乳化|调好/, 'whisking a dressing in a small ceramic bowl'],
+  [/预热|提前把.*热/,                      'a lined baking tray and fresh ingredients ready on the kitchen counter'],
+  [/腌|入味|腌渍|抓匀/,                    'marinating the ingredients in a glass bowl'],
+  [/焯|白灼|汆|烫/,                        'blanching vegetables in a pot of boiling water'],
+  [/蒸/,                                   'steaming food in a bamboo steamer basket'],
+  [/烤|烤箱|空气炸/,                        'roasting food on a lined baking tray in the oven'],
+  [/炖|焖|煨|煮|熬/,                        'simmering food in a stainless steel pot'],
+  [/切|改刀|切块|切丝|切段|切片|剁/,         'chopping fresh ingredients on a wooden cutting board'],
+  [/洗|冲|沥干|擦干|浸泡/,                  'rinsing and draining fresh vegetables in a colander'],
+  [/拌|拌匀|沙拉|油醋/,                     'tossing a fresh salad in a mixing bowl'],
+  [/撕|拆|拨|刮/,                           'shredding cooked meat with two forks'],
+  [/淋|浇|撒|点缀|装饰/,                    'drizzling olive oil and sprinkling fresh herbs'],
+  [/摆|装盘|组装|盛|组合/,                  'plating the finished dish on a ceramic plate'],
+  [/冷藏|静置|放凉|冷却|醒/,                'a chilled bowl of food resting on a wooden table'],
+  [/铺|垫|进锅|下锅|放上|入盘/,              'arranging ingredients on a baking tray before cooking']
+];
+
+/* ⚠️ 先看**步骤名**，匹配不到才退回看描述。
+   把「名 + 描述」拼起来一起匹配会把「装盘」判成拌沙拉 ——
+   因为描述里常写着「出锅后淋橄榄油，拌匀即可」，而「拌」在列表里排在「装盘」前面。
+   步骤名才是这一步真正在做什么。 */
+function stepAction(step) {
+  const t = String((step && step.t) || '');
+  const d = String((step && step.d) || '');
+  for (let i = 0; i < STEP_ACT.length; i++) if (STEP_ACT[i][0].test(t)) return STEP_ACT[i][1];
+  for (let i = 0; i < STEP_ACT.length; i++) if (STEP_ACT[i][0].test(d)) return STEP_ACT[i][1];
+  return 'preparing fresh ingredients on a wooden board';
+}
+
+/* 步骤提示词：**全英文**（同 imgPrompt 的理由）。
+   动作短语是写死的英文，菜品与食材走 trEn()，拼起来不会出现汉字。 */
+function stepPrompt(day, step, i) {
+  const ing = (day.ing || []).filter((x) => x.c !== 'season').slice(0, 5)
+    .map((x) => trEn(x.n)).filter(Boolean);
+  return [
+    'Professional food photography, close-up shot of one cooking step, natural side light, ' +
+      'rustic wooden kitchen surface, soft shadows, clean uncluttered background.',
+    'Cooking step ' + (i + 1) + ' of a Mediterranean healthy lunch: ' + stepAction(step) + '.',
+    'Dish being prepared: ' + trEn(day.title || '') + (day.sub ? ', ' + trEn(day.sub) : '') + '.',
+    'Ingredients on the counter: ' + ing.join(', ') + '.',
+    'Realistic home cooking, fresh natural colors, appetizing.',
+    'No text, no letters, no numbers, no logo, no watermark, no people, no hands.'
+  ].join('\n');
+}
+
+/* 每一步一个种子：同一步稳定出同一张图，不同步之间又互相区分。 */
+function stepSeed(day, i) {
+  return (imgSeed(day) + i * 7919) % 1000000;
+}
+
+function stepCacheKey(day, i, step) {
+  return imgHash('step|' + imgModel() + '|' + imgSize() + '|' + stepSeed(day, i) +
+                 '|' + stepPrompt(day, step, i));
+}
+function stepCacheGet(day, i, step) {
+  const e = state.stepCache[stepCacheKey(day, i, step)];
+  if (!e) return '';
+  if (e.d) return e.d;                                     // 压好的小图，永不过期
+  if (e.u && Date.now() - (e.t || 0) < IMG_SF_TTL) return e.u;
+  return '';
+}
+function stepCachePut(day, i, step, url, dataUrl) {
+  if (!url && !dataUrl) return;
+  const k = stepCacheKey(day, i, step);
+  /* 上限 36 条 ≈ 一周 5 天 × 6 步，够用；超出按最旧淘汰 */
+  const keys = Object.keys(state.stepCache);
+  if (keys.length >= 36 && !state.stepCache[k]) {
+    keys.sort((a, b) => (state.stepCache[a].t || 0) - (state.stepCache[b].t || 0));
+    for (let n = 0; n < 6; n++) delete state.stepCache[keys[n]];
+  }
+  state.stepCache[k] = { u: url || '', d: dataUrl || '', t: Date.now() };
+  writeStepCache();
+}
+
+/* 什么时候才渲染图片槽：后端模式不接（图在服务端烘焙，没有逐步接口）、
+   设置里关掉了不接、没填 Key 也不接（否则骨架屏会一直闪，看着像卡住）。 */
+function stepImgOn() { return !USE_BACKEND && state.stepImg === true && !!imgKey(); }
+
+const stepInflight = {};
+async function ensureStepImage(d, i) {
+  const step = (d.steps || [])[i];
+  if (!step) return '';
+  const hit = stepCacheGet(d, i, step);
+  if (hit) return hit;
+  const k = stepCacheKey(d, i, step);
+  if (stepInflight[k]) return stepInflight[k];
+  const p = sfGenerateStep(d, i, step);
+  stepInflight[k] = p;
+  try { return await p; } finally { delete stepInflight[k]; }
+}
+
+/* 渲染每一步的图片槽。
+   还没生成时 src 与 data-src 都是空串 —— 靠 .stimg.loading 的骨架屏占位，
+   由串行队列按 data-step-i 去生成，好了再加 .on 并淡入（与菜图同一套机制）。 */
+function stepImgHTML(d, i, step) {
+  if (!stepImgOn()) return '';
+  const cached = stepCacheGet(d, i, step);
+  return '<div class="stimg ' + (cached ? 'on' : 'loading') + '">' +
+    '<img src="' + esc(cached) + '" data-src="' + esc(cached) + '"' +
+    ' data-step-day="' + esc(d.id) + '" data-step-i="' + i + '" alt="" loading="lazy">' +
+    '<span class="ssk"></span></div>';
 }
 
 /* 「生成」= 用 <img> 预加载。 */
@@ -1719,7 +2007,18 @@ function revealImg(el) {
   if (!el || !el.isConnected || el.classList.contains('is-in')) return;
   /* ⚠️ 必须是**两次** rAF：一次的话回调跑在下一帧绘制之前，
      浏览器还没机会按 opacity:0 画过一次，过渡就整个被跳过（等于还是硬切）。 */
-  raf2(() => { if (el.isConnected) el.classList.add('is-in'); });
+  raf2(() => {
+    if (!el.isConnected) return;
+    el.classList.add('is-in');
+    /* 步骤图：图片淡入的同时把骨架屏收掉（容器 loading → on）。
+       这是「图就绪」的唯一汇聚点 —— 缓存命中走 revealReadyImages()、
+       现生成走 loadOneImage()，两条路最后都到这儿，所以只在这里处理就够了。 */
+    const box = el.parentNode;
+    if (box && box.classList && box.classList.contains('stimg')) {
+      box.classList.remove('loading');
+      box.classList.add('on');
+    }
+  });
 }
 
 /* 渲染时 src 里已经是真图的（缓存 data URL）—— 同样让它们淡入，
@@ -1786,11 +2085,14 @@ function queueImages() {
   for (let i = 0; i < list.length; i++) {
     const el = list[i];
     el.setAttribute('data-queued', '1');
+    const si = el.getAttribute('data-step-i');
     imgQueue.push({
       el: el,
       url: el.getAttribute('data-src'),
       /* AI 配图的任务一开始没有 url（要现生成），得知道是哪一天的菜 */
-      dayId: el.getAttribute('data-day')
+      dayId: el.getAttribute('data-day') || el.getAttribute('data-step-day'),
+      /* >= 0 表示这是「详细做法」里某一步的示意图，走 ensureStepImage */
+      stepIdx: si === null ? -1 : parseInt(si, 10)
     });
   }
   pumpImages();
@@ -1824,10 +2126,24 @@ async function loadOneImage(job) {
   if (!job.el.isConnected) return;
 
   let url = job.url;
+  /* 「详细做法」某一步的示意图：按 data-step-i 现生成一张，走同一条串行队列。 */
+  if (!url && job.stepIdx >= 0 && job.dayId) {
+    const d = day(state.plan, job.dayId);
+    const step = d && (d.steps || [])[job.stepIdx];
+    if (!d || !step) return;
+    try { url = await ensureStepImage(d, job.stepIdx); } catch (e) { url = ''; }
+    if (!url) {
+      /* 生成失败（没 Key / 限流 / 上游故障）→ 收起骨架屏，
+         别让它一直闪，看着像页面卡住了。 */
+      const box = job.el.parentNode;
+      if (box && box.classList) box.classList.remove('loading');
+      return;
+    }
+  }
   /* 直连模式 · AI 配图：地址是「现生成」的（SiliconFlow 要先 POST 一次），
      所以队列里的任务一开始没有 url —— 在这里生成，成功后再加载。
      生成失败就保持本地占位图，绝不出现破图。 */
-  if (!url && !USE_BACKEND && state.imgSrc === 'ai' && job.dayId) {
+  if (!url && job.stepIdx < 0 && !USE_BACKEND && state.imgSrc === 'ai' && job.dayId) {
     const d = day(state.plan, job.dayId);
     if (!d) return;
     try { url = await ensureAiImage(d); } catch (e) { url = ''; }
@@ -2330,7 +2646,14 @@ const state = {
      真实照片免费、无需 Key，但**只是同食材的相近菜品照片，不是这道菜的实拍** ——
      界面上必须写清楚，不能让用户误以为就是这道菜的照片。 */
   imgSrc: 'real',
-  sheet: null,      // {mode, dayId, idx, cat, kw, list}
+  /* 步骤配图：true = 「详细做法」每一步配一张示意图（默认）。
+     只在打开详情页时按需生成，不影响首页，也不影响生成菜单的耗时。 */
+  stepImg: true,
+  /* 步骤配图的本地缓存，键见 stepCacheKey()。
+     ⚠️ 与 imgCache **分开存**：步骤图张数是菜图的 6 倍，
+        混在一个 LRU 里会把刚出好的菜图挤出去，下次渲染又白出一张。 */
+  stepCache: {},
+  sheet: null,      // {mode, dayId, idx, cat, sub, kw, list}
   busy: null,       // {title, msg, pct, err, note}
   toast: null,
   /* 采购清单要汇总哪几天：null / 空数组 = 全部；
@@ -2369,6 +2692,10 @@ function readLS() {
     const s = localStorage.getItem(LS.imgsrc); if (s === 'ai' || s === 'real') state.imgSrc = s;
     const c = JSON.parse(localStorage.getItem(LS.imgcache) || '{}');
     if (c && typeof c === 'object') state.imgCache = c;
+    const si = localStorage.getItem(LS.stepimg);
+    if (si === '0' || si === '1') state.stepImg = (si === '1');
+    const sc = JSON.parse(localStorage.getItem(LS.stepcache) || '{}');
+    if (sc && typeof sc === 'object') state.stepCache = sc;
   } catch (e) { /* 隐私模式下 localStorage 可能不可用，忽略即可 */ }
 }
 function writeMenus() { try { localStorage.setItem(LS.menus, JSON.stringify(state.menus)); } catch (e) {} }
@@ -2384,6 +2711,18 @@ function writeImgCache() {
     keys.slice(0, Math.max(1, Math.ceil(keys.length / 2)))
       .forEach((k) => { state.imgCache[k].d = ''; });
     try { localStorage.setItem(LS.imgcache, JSON.stringify(state.imgCache)); } catch (e2) {}
+  }
+}
+/* 步骤图缓存比菜图缓存更容易把 localStorage 写满（一张 ~50KB × 最多 36 张）。
+   写不下就把最旧的一半的离线副本（data URL）丢掉，链接还留着 —— 功能不会整个挂掉。 */
+function writeStepCache() {
+  try { localStorage.setItem(LS.stepcache, JSON.stringify(state.stepCache)); }
+  catch (e) {
+    const keys = Object.keys(state.stepCache)
+      .sort((a, b) => (state.stepCache[a].t || 0) - (state.stepCache[b].t || 0));
+    keys.slice(0, Math.max(1, Math.ceil(keys.length / 2)))
+      .forEach((k) => { state.stepCache[k].d = ''; });
+    try { localStorage.setItem(LS.stepcache, JSON.stringify(state.stepCache)); } catch (e2) {}
   }
 }
 function writePlan()  { try { localStorage.setItem(LS.plan,  state.plan); } catch (e) {} }
@@ -2781,9 +3120,14 @@ function renderDay() {
   html += '<div class="secttl"><h3>详细做法</h3></div>';
   html += '<div class="card steps">' +
     '<div class="stepnote">全程蒸、煮、焯水、烤箱/空气炸锅或凉拌，出锅后再淋橄榄油，几乎不产生油烟。</div>';
+  if (!USE_BACKEND && state.stepImg === true && !imgKey()) {
+    html += '<div class="stepnote">想每一步都配一张示意图？在「设置 → AI 配图」' +
+      '填一个 SiliconFlow Key 即可（免费额度够用）。</div>';
+  }
   (d.steps || []).forEach((s, i) => {
-    html += '<div class="step"><span class="sn">' + (i + 1) + '</span><div>' +
-      '<div class="st">' + esc(s.t) + '</div><div class="sd">' + esc(s.d) + '</div></div></div>';
+    html += '<div class="step"><span class="sn">' + (i + 1) + '</span>' +
+      '<div class="sbody"><div class="st">' + esc(s.t) + '</div>' +
+      '<div class="sd">' + esc(s.d) + '</div>' + stepImgHTML(d, i, s) + '</div></div>';
   });
   html += '</div>';
   if (d.chef && d.chef.ref) {
@@ -3054,6 +3398,15 @@ function renderSetup() {
         '<div class="hint">⚠️ <b>FLUX 已在硅基流动下架</b>（实测返回 Model disabled），' +
         '所以默认用 <b>Z-Image-Turbo</b>：快、稳、食物摄影效果好。' +
         'Qwen-Image 细节最好，但更慢、图也更大。换模型后已生成的图会重新画。</div></div>') +
+      '<div class="setrow"><label for="si">详细做法的步骤配图</label>' +
+      '<select id="si">' +
+        opt('1', state.stepImg ? '1' : '0', '开启 · 每一步配一张示意图（打开详情页时按需生成）') +
+        opt('0', state.stepImg ? '1' : '0', '关闭 · 只显示文字做法') +
+      '</select>' +
+      '<div class="hint">开启后，打开某一天的详情页会**按需**为每一步生成一张示意图，' +
+      '一张约 8 秒、依次淡入，出过的图永久缓存在本地、不会重复生成。' +
+      '它只影响详情页，不影响首页配图，也不拖慢「生成菜单」。' +
+      (USE_BACKEND ? '（后端模式暂不支持步骤配图）' : '需要 SiliconFlow Key。') + '</div></div>' +
       '<div class="setrow"><label for="is">配图来源</label>' +
       '<select id="is">' +
         opt('real', state.imgSrc, '真实照片 · TheMealDB（免费、无需 Key、国内可直连）') +
@@ -3121,12 +3474,25 @@ function renderLayers() {
 
   if (state.sheet) {
     const s = state.sheet;
-    const cats = [['', '全部']].concat(CAT_ORDER.filter((c) => c !== 'season')
-      .map((c) => [c, (CAT_STYLE[c] || {}).label || c]));
+    /* 筛选条：
+       · **更换**模式 → 只列「当前这个类别」的细分（用户要求：换蛋白质时
+         不该再出现蔬菜、健康脂肪）；
+       · **添加**模式 → 仍然列全部类别，因为新增食材本来就要先选类别。 */
+    let cats, act, cur;
+    if (s.mode === 'swap') {
+      cats = [['', '全部']].concat((SUBCATS[s.cat] || []).map((g) => [g[0], g[1]]));
+      act = 'ssub';
+      cur = s.sub || '';
+    } else {
+      cats = [['', '全部']].concat(CAT_ORDER.filter((c) => c !== 'season')
+        .map((c) => [c, (CAT_STYLE[c] || {}).label || c]));
+      act = 'sfilter';
+      cur = s.cat || '';
+    }
     html += '<div class="mask" data-act="closesheet"></div><div class="sheet">';
     html += '<div class="sh"><h4>' + esc(s.title) + '</h4><p>' + esc(s.hint) + '</p></div>';
     html += '<div class="filters">' + cats.map(([k, t]) =>
-      '<button data-act="sfilter" data-arg="' + k + '" class="' + (s.cat === k ? 'on' : '') + '">' + t + '</button>'
+      '<button data-act="' + act + '" data-arg="' + k + '" class="' + (cur === k ? 'on' : '') + '">' + t + '</button>'
     ).join('') + '</div>';
     html += '<div class="searchbox"><input id="skw" placeholder="搜索食材，如 西兰花 / 糙米" value="' + esc(s.kw || '') + '"></div>';
     html += '<div class="slist">';
@@ -3416,12 +3782,19 @@ async function doSwap(dayObj, idx, want) {
     };
 
     const ings = dayObj.ing.map((x, i) => (i === idx ? replaced : Object.assign({}, x)));
-    const steps = (dayObj.steps || []).map((s) => Object.assign({}, s));
-    for (const p of (data.steps_patch || [])) {
-      if (!p || typeof p !== 'object') continue;
-      const pi = Math.round(num(p.index)) - 1;
-      const dd = String(p.d || '').trim();
-      if (dd && pi >= 0 && pi < steps.length) steps[pi].d = dd;
+    let steps = applyStepsPatch(dayObj.steps, data.steps_patch);
+
+    /* 兜底：模型常常只改第一步，后面的步骤里还留着原食材的名字（实测过）。
+       先补一次定向重写，还不行就退到「只换名字」的机械替换 —— 至少不让用户
+       在详细做法里看到已经换掉的那样食材。 */
+    let left = residualSteps(steps, target.n, name);
+    if (left.length) {
+      busyMsg('主厨发现漏改的步骤，正在补上…', 60);
+      let fix = [];
+      try { fix = await swapStepsFix(dayObj, target, name, left); } catch (e) { fix = []; }
+      steps = applyStepsPatch(steps, fix);
+      left = residualSteps(steps, target.n, name);
+      if (left.length) steps = substStepNames(steps, target.n, name, left);
     }
 
     const updated = Object.assign({}, dayObj);
@@ -3607,21 +3980,35 @@ async function doImage(id) {
   }
 }
 
+/* 食材名 → 细分 key（SUBCATS 的镜像实现，必须与 library.subcat_of 一致）。
+   ⚠️ 用「最长关键词优先」而不是「第一个命中的组」，否则会撞车：
+      「牛油果」含「油」会被油脂组抢走、「橄榄油」含「橄榄」会被果类抢走。
+      同长度时按 SUBCATS 里的组顺序取先出现的（如「鸡蛋」同时命中 蛋/鸡 → 蛋组）。 */
+function subcatOf(cat, name) {
+  const groups = SUBCATS[cat] || [];
+  const s = String(name || '');
+  let best = '', bestLen = 0;
+  groups.forEach((g) => (g[2] || []).forEach((w) => {
+    if (w && s.indexOf(w) >= 0 && w.length > bestLen) { bestLen = w.length; best = g[0]; }
+  }));
+  return best;
+}
+
 function openSwapSheet(idx) {
   const d = currentDay();
   if (!d) return;
   const it = d.ing[idx];
-  const cat = it.c === 'season' ? 'veg' : it.c;
-  const alts = (it.alt || []).map((a) => ({ n: a[0], g: a[1], note: a[2], rec: true }));
-  const names = new Set(alts.map((a) => a.n));
-  const libs = (LIB[cat] || []).filter((x) => !names.has(x[0]))
-    .map((x) => ({ n: x[0], g: x[1], note: x[2], rec: false }));
+  /* ⚠️ 这里以前是 `it.c === 'season' ? 'veg' : it.c` —— 于是「更换柠檬汁」
+     列出来的是西兰花和菠菜。调味料库现在有内容了，直接用它自己的类别。 */
+  const cat = it.c;
   state.sheet = {
-    mode: 'swap', dayId: d.id, idx, cat, kw: '', custom: null,
+    mode: 'swap', dayId: d.id, idx, cat, sub: '', kw: '', custom: null,
     title: '更换「' + it.n + '」',
-    hint: '选一个替代食材，主厨会联网核对并按营养当量折算克重。AI 推荐在前，下面是同类别的高营养密度食材。',
-    list: alts.concat(libs)
+    hint: '只列「' + ((CAT_STYLE[cat] || {}).label || cat) +
+      '」里的替代食材，主厨会联网核对并按营养当量折算克重。AI 推荐排在最前面。',
+    list: []
   };
+  filterSheetList();
   renderLayers();
 }
 
@@ -3629,7 +4016,7 @@ function openAddSheet() {
   const d = currentDay();
   if (!d) return;
   state.sheet = {
-    mode: 'add', dayId: d.id, idx: -1, cat: 'veg', kw: '', custom: null,
+    mode: 'add', dayId: d.id, idx: -1, cat: 'veg', sub: '', kw: '', custom: null,
     title: '添加一项自定义食材',
     hint: '直接加进这份菜谱，克重按一人份填写；不会调用 AI。',
     list: CAT_ORDER.filter((c) => c !== 'season')
@@ -3649,9 +4036,13 @@ function filterSheetList() {
     const cat = s.cat || (it ? it.c : 'veg');
     const alts = it ? (it.alt || []).map((a) => ({ n:a[0], g:a[1], note:a[2], rec:true })) : [];
     const names = new Set(alts.map((a) => a.n));
-    const libs = (LIB[cat === 'season' ? 'veg' : cat] || []).filter((x) => !names.has(x[0]))
+    /* ⚠️ 只取**本类别**的库项。以前 season 被错映射成 veg，
+       导致「更换柠檬汁」列出的是西兰花、菠菜。 */
+    const libs = (LIB[cat] || []).filter((x) => !names.has(x[0]))
       .map((x) => ({ n:x[0], g:x[1], note:x[2], rec:false }));
     all = alts.concat(libs);
+    /* 二级细分：AI 推荐项与库项都按自己的名字归类，只留当前细分 */
+    if (s.sub) all = all.filter((x) => subcatOf(cat, x.n) === s.sub);
   } else {
     const cats = s.cat ? [s.cat] : CAT_ORDER.filter((c) => c !== 'season');
     all = cats.reduce((acc, c) => acc.concat((LIB[c] || []).map((x) => ({ n:x[0], g:x[1], note:x[2], rec:false }))), []);
@@ -4139,7 +4530,14 @@ document.addEventListener('click', function (ev) {
       if (ev.target === el || el.classList.contains('sclose')) { state.sheet = null; renderLayers(); }
       break;
     case 'sfilter':
-      if (state.sheet) { state.sheet.cat = arg; state.sheet.kw = ''; filterSheetList(); renderLayers(); }
+      if (state.sheet) {
+        state.sheet.cat = arg; state.sheet.sub = ''; state.sheet.kw = '';
+        filterSheetList(); renderLayers();
+      }
+      break;
+    case 'ssub':
+      /* 更换模式的二级细分（鱼/虾贝/禽肉…）—— 不动 cat，只换细分 */
+      if (state.sheet) { state.sheet.sub = arg; state.sheet.kw = ''; filterSheetList(); renderLayers(); }
       break;
     case 'pick':
       pickFromSheet(parseInt(arg, 10));
@@ -4154,6 +4552,7 @@ document.addEventListener('click', function (ev) {
       const k = ($('#k') || {}).value;
       const m = ($('#m') || {}).value;
       const is = ($('#is') || {}).value;
+      const si = ($('#si') || {}).value;
       const ik = ($('#ik') || {}).value;
       const im = ($('#im') || {}).value;
       const kt = ($('#kt') || {}).value;
@@ -4162,12 +4561,14 @@ document.addEventListener('click', function (ev) {
         if (k != null) { if (k.trim()) localStorage.setItem(LS.key, k.trim()); else localStorage.removeItem(LS.key); }
         if (m) localStorage.setItem(LS.model, m);
         if (is === 'ai' || is === 'real') localStorage.setItem(LS.imgsrc, is);
+        if (si === '0' || si === '1') localStorage.setItem(LS.stepimg, si);
         if (ik != null) { if (ik.trim()) localStorage.setItem(LS.imgkey, ik.trim()); else localStorage.removeItem(LS.imgkey); }
         if (im) localStorage.setItem(LS.imgmodel, im);
         if (kt) localStorage.setItem(LS.kcaltgt, kt);
         localStorage.setItem(LS.avoid, JSON.stringify(av));
       } catch (e) {}
       if (is === 'ai' || is === 'real') state.imgSrc = is;
+      if (si === '0' || si === '1') state.stepImg = (si === '1');
       if (kt) state.kcalTarget = kt;
       state.avoid = av;
       render();
@@ -4354,7 +4755,16 @@ window.HL = {
   /* 全局限流闸门的自检（供测试验证「429 后整体冷却」） */
   gateState: () => gateUntil,
   resetGate: () => { gateUntil = 0; },
-  FALLBACK, LIB, CAT_ORDER, GRAM_RANGE, TOTAL_RANGE, PLANS, DAY_PLAN, PROMPTS, MODELS, THUMBS,
+  FALLBACK, LIB, SUBCATS, CAT_ORDER, GRAM_RANGE, TOTAL_RANGE, PLANS, DAY_PLAN, PROMPTS, MODELS, THUMBS,
+  /* 「更换食材」面板的二级细分 + 步骤配图（供测试与调试） */
+  subcatOf, stepAction, stepPrompt, stepSeed, stepCacheKey, stepCacheGet, stepImgHTML,
+  /* 换食材后「详细做法跟着改」的工具（供测试直接驱动） */
+  swapStepsBlock, applyStepsPatch, coreName, residualSteps, substStepNames, swapStepsFix,
+  cleanStep,
+  SWAP_PATCH_SCHEMA,
+  ensureStepImage, stepImgOn, setStepImg: (v) => { state.stepImg = !!v; },
+  stepImgState: () => ({ on: stepImgOn(), cached: Object.keys(state.stepCache).length,
+                         pending: imgQueue.filter((j) => j.stepIdx >= 0).length }),
   /* 后端模式相关（供测试与调试） */
   CONF, USE_BACKEND, READONLY, request, runJob, backendUrl, imgUrl, syncFromBackend, isFallback,
   /* 界面层（供测试与调试） */
