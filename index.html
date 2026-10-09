@@ -235,12 +235,18 @@ main{padding-bottom:24px}
 .benefit .d{font-size:11.5px;color:var(--ink-3);margin-top:5px;line-height:1.55}
 
 /* ---------- 菜单 ---------- */
-.planbar{display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;align-items:center}
-.planbar .seg{display:flex;background:#fff;border:1px solid var(--line);border-radius:999px;padding:3px}
-.planbar .seg button{padding:8px 18px;border-radius:999px;font-size:13.5px;color:var(--ink-2)}
-.planbar .seg button.on{background:var(--navy);color:#fff;font-weight:500}
-.planbar .meta{font-size:13px;color:var(--ink-3);margin-left:auto}
-.planbar .meta b{color:var(--ink-2);font-weight:500}
+/* ⚠️ 选择器必须是 .dbar：方案 A/B 的切换控件挂在 .dbar 里。
+   原来写的是 .planbar —— 而 .planbar 早就不存在了（grep 全库 0 处），
+   于是这个分段控件**一条样式都没命中**，按钮渲染成 24px 高的裸按钮，
+   看着像两行文字，用户根本认不出它是个切换控件。
+   教训：改结构（换 class）时，一定要回头查旧 class 的 CSS 还挂在谁身上。
+   ⚠️ 残留的 `.planbar{}` / `.planbar .meta{}` 死规则已一并删除 ——
+      留着不但没用，还会让「旧 class 的 CSS 到底挂在谁身上」这个坑重演，
+      后来人看到这些规则会以为 .planbar 还有宿主。 */
+.dbar .seg{display:flex;background:#fff;border:1px solid var(--line);border-radius:999px;padding:3px}
+.dbar .seg button{padding:8px 18px;border-radius:999px;font-size:13.5px;color:var(--ink-2)}
+.dbar .seg button:hover{background:var(--bg);color:var(--ink)}
+.dbar .seg button.on{background:var(--navy);color:#fff;font-weight:500}
 
 .days{display:grid;grid-template-columns:repeat(5,1fr);gap:16px}
 .day{
@@ -348,6 +354,14 @@ main{padding-bottom:24px}
 .pill.blue{background:#E8F2F9;color:var(--blue)}
 .pill.green{background:#EAF6EF;color:var(--green-d)}
 .pill.navy{background:var(--navy);color:#fff}
+/* 「今日」角标：当天菜谱上唯一的实心绿标签，扫一眼就知道看的是今天。
+   首页只显示一天，所以「今天」的强调用大图描边，而不是整页换底色。 */
+.pill.today{background:var(--green-d);color:#fff;font-weight:600}
+.dhero.today{box-shadow:0 0 0 3px rgba(76,179,124,.55),var(--sh)}
+/* 按下反馈：.btn 本来就有 :active，这几个原来缺，补上 */
+.weeknav button:active,.dbar .seg button:active,.sp-c:active{transform:scale(.97)}
+.stepper button:active{background:#fff;transform:scale(.94)}
+.shoprow .pq:active,.irow .sb:active{transform:scale(.94)}
 .dhead h1{font-size:clamp(23px,2.9vw,31px);font-weight:600;color:var(--navy);line-height:1.28;letter-spacing:-.3px}
 .dhead .dsub{font-size:14.5px;color:var(--ink-2);margin-top:8px}
 .dhead .tags{display:flex;gap:7px;flex-wrap:wrap;margin-top:14px}
@@ -358,6 +372,8 @@ main{padding-bottom:24px}
   padding:14px 6px 12px;text-align:center;box-shadow:var(--sh-sm)}
 .nutri .n:first-child{background:linear-gradient(180deg,#F2FAF5,#E7F5EE);border-color:#D3EBDD}
 .nutri .n:first-child .v{color:var(--green-d)}
+/* 有 title 的营养格：悬停给解释（读屏靠 aria-label）。光标给个提示 */
+.nutri .n[title]{cursor:help}
 .nutri .v{font-size:23px;font-weight:700;color:var(--navy);line-height:1.1;
   font-variant-numeric:tabular-nums;letter-spacing:-.6px}
 .nutri .v .u{font-size:10px;font-weight:500;color:var(--ink-2);margin-left:2px;letter-spacing:0}
@@ -797,6 +813,31 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,[t
 /* ---- 采购清单：复制按钮 ---- */
 .shopacts{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:16px 0 4px}
 .shopacts .shoptip{font-size:12.5px;color:var(--ink-3)}
+
+/* ---- 移动端触摸目标：一律 ≥44px ----
+   实测（375px，真 Chrome）：14 个控件里有 10 个不到 44px ——
+   星期按钮 28px、A/B 分段 24px、步进器 32px、主按钮 39px。
+   ⚠️ 只在窄屏放大：桌面端鼠标点 44px 会显得笨重。
+   ⚠️ 顶栏高度固定 56px，所以顶栏里的按钮只加 min-height、不加横向 padding，
+      否则 375px 下会把 logo / 星期按钮挤出去。 */
+@media (max-width:640px){
+  .btn{min-height:44px}
+  .btn.sm{padding:0 16px}
+  .topbar .act .btn{padding:0 14px}
+  .weeknav button{min-height:44px}
+  .dbar .seg button{min-height:44px}
+  .stepper button{width:44px;height:44px}
+  .stepper .num{min-width:52px}
+  /* ⚠️ 采购清单页的步进器被 .shoppick .stepper button（特异性 0,2,1）压着，
+     只写 .stepper button（0,1,1）根本盖不住 —— 375px 下实测仍是 26px。
+     必须补一条同等特异性的规则才生效。 */
+  .shoppick .stepper button{width:44px;height:44px}
+  .shoppick .stepper .num{min-width:52px}
+  .sp-c{min-height:44px;display:inline-flex;align-items:center;justify-content:center;padding:0 14px}
+  .serve .quick button{min-height:44px;display:inline-flex;align-items:center;padding:0 14px}
+  .shoprow .pq{width:44px;height:44px}
+  .irow .sb{min-height:44px;display:inline-flex;align-items:center;padding:0 14px}
+}
 
 /* ---- 打印：屏幕上藏起来，@media print 时才显示 ---- */
 #print{display:none}
@@ -2195,6 +2236,8 @@ async function loadOneImage(job) {
     const d = day(state.plan, job.dayId);
     const step = d && (d.steps || [])[job.stepIdx];
     if (!d || !step) return;
+    /* ⚠️ 生成过程中别给**内置保底菜单**出图（见下面菜图分支的同款说明）。 */
+    if (state.busy && !d.img_seed) return;
     try { url = await ensureStepImage(d, job.stepIdx); } catch (e) { url = ''; }
     if (!url) {
       /* 生成失败（没 Key / 限流 / 上游故障）→ 收起骨架屏，
@@ -2210,6 +2253,13 @@ async function loadOneImage(job) {
   if (!url && job.stepIdx < 0 && !USE_BACKEND && state.imgSrc === 'ai' && job.dayId) {
     const d = day(state.plan, job.dayId);
     if (!d) return;
+    /* ⚠️ 生成菜单期间**不要**给「屏幕上这份即将被替换的内容」出图。
+       此时 state.menus[plan] 还没赋值，首页渲染的其实是**内置保底菜单**；
+       给保底菜出图纯属白烧额度（用户几秒后就看到新菜单了），而且保底菜
+       没有 img_seed → 缓存键按菜名派生 → 跟预取的那张对不上，等于白出一张。
+       判据就是 img_seed：生成出来的菜一定有，保底菜一定没有。
+       生成结束后 render() 会重新排队，那时才真正按新菜单出图。 */
+    if (state.busy && !d.img_seed) return;
     try { url = await ensureAiImage(d); } catch (e) { url = ''; }
   }
   if (!url || !job.el.isConnected) return;
@@ -2886,6 +2936,14 @@ function daysOf(plan) {
   return (m && m.days) || [];
 }
 
+/* 今天是菜单里的哪一天（周末落到周一）。首页的「今日」角标和顶栏的
+   小圆点都用它，避免两处各算一遍、算法还不一样。 */
+function todayIdOf() {
+  const ds = daysOf(state.plan);
+  if (!ds.length) return null;
+  return ds[Math.min(todayIdx(), ds.length - 1)].id;
+}
+
 /* 首页当前展示哪一天：state.homeDay 优先（用户点过星期按钮），
    其次 state.dayId（老代码 / 外部调用只设这个），否则自动落到「今天」—— 周末落到周一。 */
 function selectedDayId() {
@@ -2980,6 +3038,8 @@ function renderHome() {
   const planKeys = Object.keys(PLANS).length ? Object.keys(PLANS) : Object.keys(FALLBACK);
   const d = day(state.plan, selectedDayId());
   if (!d) { renderHomeEmpty(); return; }
+  /* 正在看的就是今天吗？是的话加「今日」角标 + 大图描边 */
+  const isToday = d.id === todayIdOf();
   /* 同 dayCard：src 只表示 AI 图地址，空串时用本地占位图顶上 */
   const src = imgUrl(state.plan, d.id);
   const serv = d.servings || COMPANY;
@@ -3019,7 +3079,8 @@ function renderHome() {
 
   /* 左：图 + 营养 */
   html += '<div>';
-  html += '<div class="dhero"' + (thumbUrl(d) ? ' style="background-image:url(' + esc(thumbUrl(d)) + ')"' : '') + '>' +
+  html += '<div class="dhero' + (isToday ? ' today' : '') + '"' +
+    (thumbUrl(d) ? ' style="background-image:url(' + esc(thumbUrl(d)) + ')"' : '') + '>' +
     (thumbUrl(d) ? '<img src="' + esc(imgDisplaySrc(src, thumbUrl(d))) + '" data-src="' + esc(src) + '" data-day="' + esc(d.id) + '" alt="' + esc(d.title) + '">' : phHTML(d.type, 92)) +
     '<span class="badge">' + esc(d.tn) + '</span>' +
     (real ? '<span class="ai realph">真实照片</span>' : (aiImg ? '<span class="ai">AI 生成配图</span>' : '')) + '</div>';
@@ -3060,7 +3121,9 @@ function renderHome() {
 
   /* 右：标题 + 主厨说 */
   html += '<div class="dhead">';
-  html += '<div class="wkrow"><span class="pill navy">' + esc(d.wk) + ' · ' + esc(d.en) + '</span>' +
+  html += '<div class="wkrow">' +
+    (isToday ? '<span class="pill today">今日</span>' : '') +
+    '<span class="pill navy">' + esc(d.wk) + ' · ' + esc(d.en) + '</span>' +
     '<span class="pill blue">' + esc(d.method || '') + '</span>' +
     /* time 是后加的字段：老菜单（含内置保底）没有就不显示，绝不编一个数字 */
     (d.time ? '<span class="pill blue">约 ' + esc(d.time) + ' 分钟</span>' : '') +
@@ -3078,8 +3141,11 @@ function renderHome() {
       '或点下面的「让 AI 换一道」重新做。</div>';
   }
   html += '<div class="nutri">' +
-    ncell(d.kcal, 'kcal', '千卡') + ncell(d.p, 'g', '蛋白质') + ncell(d.c, 'g', '碳水') +
-    ncell(d.f, 'g', '脂肪') + ncell(d.fb, 'g', '膳食纤维') + '</div>';
+    ncell(d.kcal, 'kcal', '千卡', '本餐一人份的热量。按公司餐换算时，整份就是这个数乘以人数。') +
+    ncell(d.p, 'g', '蛋白质', '优质蛋白来自本餐的荤菜（鱼 / 虾 / 鸡 / 牛 / 猪），以及豆类和乳制品。') +
+    ncell(d.c, 'g', '碳水', '主要来自全谷物、杂豆和薯类，升糖更平缓，下午不容易犯困。') +
+    ncell(d.f, 'g', '脂肪', '以橄榄油、坚果和鱼类的不饱和脂肪为主，饱和脂肪占比低。') +
+    ncell(d.fb, 'g', '膳食纤维', '来自深色叶菜、十字花科和全谷物，有助饱腹与肠道健康。') + '</div>';
   if (d.chef && d.chef.say) {
     html += '<div class="chefsay"><div class="ico">' +
       '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#8FE0B4" stroke-width="1.7" ' +
@@ -3247,9 +3313,18 @@ function renderHomeEmpty() {
   $('#app').innerHTML = h;
 }
 
-function ncell(v, u, l) {
+function ncell(v, u, l, tip) {
   const val = (typeof v === 'number') ? (v >= 100 ? Math.round(v) : Math.round(v * 10) / 10) : v;
-  return '<div class="n"><div class="v">' + esc(val) + '<span class="u">' + u + '</span></div>' +
+  /* tip 走原生 title：悬停能看解释，读屏也能念出来（aria-label）。
+     不做自定义 tooltip —— 那要额外处理定位、焦点、触摸，收益不抵复杂度。
+     ⚠️ title 也要带上指标名（「蛋白质：…」）：光写解释，鼠标停在「碳水」上
+        弹出一句「主要来自全谷物…」，用户得自己把两边对起来；而且工具提示是
+        脱离上下文单独出现的，不自报家门就说不清在解释什么。 */
+  const t = tip
+    ? ' title="' + esc(l + '：' + tip) + '" aria-label="' + esc(l + '：' + tip) + '"'
+    : '';
+  return '<div class="n"' + t + '><div class="v">' + esc(val) +
+    '<span class="u">' + u + '</span></div>' +
     '<div class="l">' + l + '</div></div>';
 }
 
@@ -3514,7 +3589,10 @@ function renderShop() {
   html += '<div class="shopacts"><button class="btn navy" data-act="copyshop">复制购物清单</button>' +
     '<button class="btn ghost" data-act="getprice">' +
       (pt.known ? (pt.known < nPriced ? '补齐参考价' : '刷新参考价') : '获取参考价') + '</button>' +
-    '<span class="shoptip">复制成纯文本，直接粘到微信、备忘录或买菜 App 里。</span></div>';
+    '<button class="btn ghost" data-act="downloadshop">下载 .txt</button>' +
+    '<button class="btn ghost" data-act="printshop">打印清单</button>' +
+    '<span class="shoptip">复制成纯文本，直接粘到微信、备忘录或买菜 App 里；' +
+    '也可以下载成 txt 或直接打印带去菜场。</span></div>';
   /* 参考价汇总。⚠️ 必须写明「AI 估算、非实时」—— 这是估算值，不能让人当成实时报价。 */
   html += '<div class="pricebar">' +
     '<span>参考价合计约 <b>' + (pt.known ? ('¥' + pt.sum.toFixed(1)) : '—') + '</b>' +
@@ -3841,7 +3919,7 @@ async function doGenWeek() {
       busyMsg('正在联网检索并设计 ' + slice.map((m) => m.wk).join('、') + ' 的午餐…',
         4 + Math.round((i / total) * 90));
       const results = await Promise.all(slice.map(async (meta) => {
-        const d = await generateDay(meta, plan, avoid, avoidLine());
+        const d = await generateDay(meta, plan, avoid, extraLine());
         /* ⚠️ 种子必须在**入队预取之前**定下来：配图缓存键含 img_seed，
            先预取、后改种子 = 白出一张图（渲染时按新种子查缓存必然未命中，
            于是同一道菜被生成两次、额度白烧）。 */
@@ -4121,7 +4199,7 @@ async function doRegen(id) {
 
     const avoid = (menu(state.plan).days || []).map((x) => x.title).filter(Boolean);
     if (d.title && avoid.indexOf(d.title) < 0) avoid.push(d.title);
-    const user = buildRegenPrompt(meta, d.title || '', '', (PLANS[state.plan] || {}).style || '', avoid, COMPANY, avoidLine());
+    const user = buildRegenPrompt(meta, d.title || '', '', (PLANS[state.plan] || {}).style || '', avoid, COMPANY, extraLine());
     const r = await chatJson(PROMPTS.chefSystem, user, { search:true });
     const nd = normalizeDay(r.json, meta, state.plan, r.sources);
     nd.servings = d.servings || COMPANY;
@@ -4430,6 +4508,22 @@ function avoidLine() {
     '。任何食材、替代项、调味料里都不允许出现它们。\n';
 }
 
+/* ⚠️ 「每日热量目标」以前是个**死设置**：设置页能选、值也存进了 state，
+   但 grep 下来只有 4 处「写」、**0 处「读」** —— 既不进提示词，也不参与筛选。
+   现在它真的生效：走 buildDayPrompt 的第 5 参 extra，所以提示词模板本身不用改，
+   与后端 prompts.build_day_prompt 的「逐字一致」断言也不受影响。 */
+function kcalLine() {
+  const band = KCAL_BANDS.filter((b) => b.k === state.kcalTarget)[0];
+  if (!band || band.k === 'all') return '';
+  const mid = Math.round((band.lo + band.hi) / 2);
+  return '【每日热量目标】本餐一人份的热量要落在 ' + band.t + ' kcal 区间内，' +
+    '目标 ' + mid + ' kcal 左右（上下浮动不超过 10%）。' +
+    '不要靠减蔬菜来凑热量，优先调整主食与油脂的量。\n';
+}
+
+/* 生成时贴在提示词末尾的「额外约束」：忌口 + 每日热量目标 */
+function extraLine() { return avoidLine() + kcalLine(); }
+
 /* ---- 生成失败：把原始报错翻译成人话 + 首页常驻提示条 ---- */
 /* ⚠️ 只用于「给用户看的那一份」。state.busy.err 里仍然存**原始报错** ——
    test_web.js / test_web_backend.js 都有针对原始文案（429 / 超时 / BACKEND_BASE…）
@@ -4578,6 +4672,64 @@ function doPrint(id) {
   try { window.print(); } catch (e) { toast('打印被浏览器拦截了'); }
 }
 
+/* 打印「一周食材清单」—— 采购页用。
+   printHTML() 只打一天；去买一周的菜，要的是**合并后的总量**，所以单独一份。 */
+function printShopHTML() {
+  const { serv, items } = shopData();
+  const picked = shopPicked();
+  const allOn = !state.shopDays || !state.shopDays.length;
+  const label = allOn ? ('全周 ' + ((menu(state.plan) || {}).days || []).length + ' 天')
+    : picked.map((d) => d.wk).join('、');
+  const pt = priceTotal(items, serv);
+  const grand = items.reduce((s, i) => s + i.per * serv, 0);
+  let h = '<div class="pwrap">';
+  h += '<div class="phead"><div class="pt">一周食材采购清单</div>' +
+    '<div class="ps">' + esc(label) + ' · ' + serv + ' 人份</div>' +
+    '<div class="pm">合计约 ' + (r1(grand / 1000)).toFixed(1) + ' kg' +
+    (pt.known ? ' · 参考价合计约 ¥' + pt.sum.toFixed(1) + '（AI 估算，非实时）' : '') +
+    '</div></div>';
+  CAT_ORDER.forEach((c) => {
+    const list = items.filter((i) => i.c === c).sort((a, b) => b.per - a.per);
+    if (!list.length) return;
+    h += '<div class="pg">' + esc((CAT_STYLE[c] || {}).label || c) + '</div>';
+    list.forEach((i) => {
+      const up = (i.c === 'season') ? null : priceOf(i.n);
+      const st = up == null ? null : priceSubtotal(i.n, i.per * serv);
+      h += '<div class="pi"><span>' + esc(i.n) +
+        (st == null ? '' : ' <i>¥' + priceMoney(up) + '/500g</i>') + '</span><b>' +
+        gfmt(i.per * serv) + (st == null ? '' : ' · ¥' + st.toFixed(1)) + '</b></div>';
+    });
+  });
+  h += '<div class="pfoot">由「健康午餐」AI 主厨生成 · 一人一份精准到克 · ' +
+    '调味料按一人份累计，实际可按口味增减。' +
+    (pt.known ? '<br>参考价由 AI 联网估算，不是实时价，仅供预算参考。' : '') +
+    '</div></div>';
+  return h;
+}
+
+function doPrintShop() {
+  const box = $('#print');
+  if (!box) { toast('当前环境不支持打印'); return; }
+  box.innerHTML = printShopHTML();
+  try { window.print(); } catch (e) { toast('打印被浏览器拦截了'); }
+}
+
+/* 导出成 .txt。⚠️ 开头加 BOM(\ufeff)：不然 Windows 记事本按 GBK 解，中文全乱码。
+   file:// 下 Blob 下载在 Chrome 里是可用的。 */
+function doDownloadShop() {
+  const txt = shopText();
+  const name = '健康午餐-采购清单-' + new Date().toISOString().slice(0, 10) + '.txt';
+  try {
+    const blob = new Blob(['\ufeff' + txt], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = name;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+    toast('已下载 ' + name);
+  } catch (e) { toast('下载失败，请改用「复制购物清单」'); }
+}
+
 /* ---- 复制购物清单 ---- */
 function shopText() {
   const { serv, items } = shopData();
@@ -4711,6 +4863,12 @@ document.addEventListener('click', function (ev) {
       break;
     case 'copyshop':
       doCopyShop();
+      break;
+    case 'downloadshop':
+      doDownloadShop();
+      break;
+    case 'printshop':
+      doPrintShop();
       break;
     case 'getprice':
       if (!state.busy) doFetchPrices();
@@ -4977,7 +5135,8 @@ window.HL = {
   imgPrompt, extractJson, normCat, cleanAlt, collectSources, menu, day, shopData,
   doGenWeek, doSwap, doRegen, doImage, openSwapSheet, openAddSheet, filterSheetList,
   avoidHits, avoidLine, weekAggHTML, filterDays, filterBarHTML, printHTML, doPrint,
-  shopText, doCopyShop, legalHTML, avoidCardHTML, AVOID_OPTS, AVOID_LABEL, KCAL_BANDS,
+  shopText, doCopyShop, doDownloadShop, doPrintShop, printShopHTML,
+  todayIdOf, extraLine, kcalLine, legalHTML, avoidCardHTML, AVOID_OPTS, AVOID_LABEL, KCAL_BANDS,
   /* 参考菜价（AI 估算 + 四平台官方入口，供测试与调试） */
   PRICE_PLATFORMS, priceOf, priceMoney, priceSubtotal, priceTotal, priceItems, writePrices,
   pricePopHTML, doFetchPrices, fetchPricesVia, buildPricePrompt, PRICE_SYSTEM, pickPrice, copyText,
