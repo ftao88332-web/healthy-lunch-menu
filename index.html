@@ -330,10 +330,9 @@ main{padding-bottom:24px}
   position:absolute;right:12px;top:12px;padding:5px 12px;border-radius:999px;font-size:12px;
   color:#fff;background:rgba(62,158,106,.92);
 }
-/* 真实照片用蓝色徽标，和绿色的「AI 生成配图」一眼能分开 */
-.dhero .ai.realph{background:rgba(30,110,158,.92)}
-.imgcred{margin-top:9px;font-size:12px;color:var(--ink-3);line-height:1.62}
-.imgcred b{color:var(--ink-2);font-weight:600}
+/* ⚠️ 这里原本还有「真实照片」蓝徽标（.dhero .ai.realph）与来源说明（.imgcred）的样式。
+   真实照片（TheMealDB 实拍）功能已于 2026-10-09 按用户要求下线，配图一律 AI 生成，
+   对应样式一并删除 —— 留着就是又一批「没有宿主的死 CSS」。 */
 /* 做法视频 / 图文教程 */
 .recipl{padding:15px 17px}
 .rlq{font-size:12.5px;color:var(--ink-3);margin-bottom:12px;line-height:1.6}
@@ -950,7 +949,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,[t
     <div class="fn">
       <b>零油烟地中海午餐计划</b> · 一周五天、一人一份、精准到克。
       菜谱由 AI 主厨联网检索真实做法后生成，温度与时间以检索到的公开来源为准。
-      配图与做法链接均标明来源，<b>真实照片为同食材的相近菜品，不是这道菜的实拍</b>。
+      配图由 AI 生成，做法链接标明来源。
       本页内容仅供饮食参考，如有疾病或特殊营养需求请遵医嘱。
     </div>
   </div>
@@ -1079,7 +1078,6 @@ const READONLY = (function () {
    1. 常量与工具
    ========================================================================= */
 const LS = { plan:'hl_plan', menus:'hl_menus', imgs:'hl_imgs', key:'hl_key', model:'hl_model',
-             imgsrc:'hl_imgsrc',        // 'real' = 真实照片（TheMealDB）｜ 'ai' = AI 生成
              imgkey:'hl_imgkey',        // 用户自己填的 SiliconFlow Key（覆盖内置的）
              imgmodel:'hl_imgmodel',    // AI 配图用哪个模型
              imgcache:'hl_imgcache',   // AI 配图缓存（data URL / 链接 + 时间戳）
@@ -2186,21 +2184,67 @@ function queueImages() {
   for (let i = imgQueue.length - 1; i >= 0; i--) {
     if (!imgQueue[i].prefetch) imgQueue.splice(i, 1);
   }
-  const list = document.querySelectorAll('img[data-src]:not([data-queued])');
+  /* 菜图立即排队；步骤图**不在这里排** —— 交给 observeStepImages()，
+     滚到「详细做法」那一段才生成（见下面那段的说明）。 */
+  const list = document.querySelectorAll('img[data-src]:not([data-queued]):not([data-step-i])');
   for (let i = 0; i < list.length; i++) {
     const el = list[i];
     el.setAttribute('data-queued', '1');
-    const si = el.getAttribute('data-step-i');
     imgQueue.push({
       el: el,
       url: el.getAttribute('data-src'),
       /* AI 配图的任务一开始没有 url（要现生成），得知道是哪一天的菜 */
-      dayId: el.getAttribute('data-day') || el.getAttribute('data-step-day'),
-      /* >= 0 表示这是「详细做法」里某一步的示意图，走 ensureStepImage */
-      stepIdx: si === null ? -1 : parseInt(si, 10)
+      dayId: el.getAttribute('data-day'),
+      stepIdx: -1
     });
   }
+  observeStepImages();
   pumpImages();
+}
+
+/* ---- 步骤图懒加载 ----------------------------------------------------------
+
+   用户反馈「详细步骤照片显示不出来」+「网页延迟也很高」，实测根因是同一个：
+   打开首页会一次性排队 **1 张菜图 + 当天 6 张步骤图**，而队列是严格串行的
+   （SiliconFlow 并发 4 个有 3 个直接 429，见 pumpImages 的说明），
+   每张还要等 400ms —— 于是步骤图要等 30~60 秒才陆续出现，看着就像坏了；
+   这半分钟里网络也一直被占着，整页都觉得卡。
+
+   所以改成：**只有「详细做法」滚动进视口，才去生成那一步的图。**
+   rootMargin 留 200px，快到的时候就开始做，滚下去时基本已经好了。 */
+let stepIO = null;
+
+function queueStepImage(el) {
+  if (!el || el.getAttribute('data-queued')) return;
+  el.setAttribute('data-queued', '1');
+  imgQueue.push({
+    el: el,
+    url: el.getAttribute('data-src'),
+    dayId: el.getAttribute('data-day') || el.getAttribute('data-step-day'),
+    /* >= 0 表示这是「详细做法」里某一步的示意图，走 ensureStepImage */
+    stepIdx: parseInt(el.getAttribute('data-step-i'), 10)
+  });
+  pumpImages();
+}
+
+function observeStepImages() {
+  const nodes = document.querySelectorAll('.stimg.loading img[data-step-i]:not([data-queued])');
+  if (!nodes.length) return;
+  /* 老浏览器没有 IntersectionObserver → 退回「全部排队」，行为跟改之前一致 */
+  if (typeof IntersectionObserver !== 'function') {
+    [].forEach.call(nodes, queueStepImage);
+    return;
+  }
+  if (!stepIO) {
+    stepIO = new IntersectionObserver((entries) => {
+      entries.forEach((en) => {
+        if (!en.isIntersecting) return;
+        stepIO.unobserve(en.target);
+        queueStepImage(en.target);
+      });
+    }, { rootMargin: '200px 0px' });
+  }
+  [].forEach.call(nodes, (el) => stepIO.observe(el));
 }
 
 async function pumpImages() {
@@ -2211,6 +2255,9 @@ async function pumpImages() {
     await sleep(400);                 // 张与张之间留个间隔，别贴着打
   }
   imgPumping = false;
+  /* 队列排空 → 一次性把缓存落盘（见 writeImgCache 上面那段说明：
+     一张图写一次 localStorage 会把主线程拖垮）。 */
+  flushCacheWrites();
 }
 
 /* 串行性的自检计数：同一时刻在跑的 loadOneImage 数量，峰值应当恒为 1。
@@ -2250,7 +2297,7 @@ async function loadOneImage(job) {
   /* 直连模式 · AI 配图：地址是「现生成」的（SiliconFlow 要先 POST 一次），
      所以队列里的任务一开始没有 url —— 在这里生成，成功后再加载。
      生成失败就保持本地占位图，绝不出现破图。 */
-  if (!url && job.stepIdx < 0 && !USE_BACKEND && state.imgSrc === 'ai' && job.dayId) {
+  if (!url && job.stepIdx < 0 && !USE_BACKEND && job.dayId) {
     const d = day(state.plan, job.dayId);
     if (!d) return;
     /* ⚠️ 生成菜单期间**不要**给「屏幕上这份即将被替换的内容」出图。
@@ -2601,9 +2648,8 @@ async function lookupRealDish(day) {
    单独取是因为 filter.php 不返回 strYoutube，而一次只展示一张，没必要全取。 */
 async function lookupRealDetail(day) {
   const r = day && day.real;
-  if (!r || !r.list || !r.list.length) return null;
-  const pick = r.list[Math.min(r.i || 0, r.list.length - 1)];
-  if (!pick) return null;
+  const pick = realCurrent(day);
+  if (!r || !pick) return null;
   if (r.det && r.det.id === pick.id) return r.det;     // 同一候选不再重复请求
   const det = { id: pick.id, yt: '', src: '' };
   try {
@@ -2619,12 +2665,14 @@ async function lookupRealDetail(day) {
   return det;
 }
 
-/* 确保当前方案每天都有真实照片。没有「做法相同」的日子 list 为空，
-   由 imgUrl() 自动退回 AI 图 —— 绝不会出现破图或空白。
-   只直连模式用；后端模式的图在服务端烘焙，不参与这里。 */
+/* 补齐全周的 TheMealDB 检索结果。
+   ⚠️ 真实照片已下线，这一步现在**只为「做法链接」服务** —— 它的产物 d.real
+      是 recipeLinksHTML() 唯一的数据来源（原菜谱 / YouTube 演示 / 搜索词）。
+      所以名字还叫 ensureReal，但功能已经变成「确保每天都有做法链接的数据」。
+   只直连模式用；后端模式不需要。 */
 let realBusy = false;
 async function ensureReal() {
-  if (state.imgSrc !== 'real' || USE_BACKEND || realBusy) return;
+  if (USE_BACKEND || realBusy) return;
   const days = (menu(state.plan) || {}).days || [];
   const need = days.filter((d) => d && !d.real);
   if (!need.length) return;
@@ -2713,34 +2761,33 @@ function recipeLinksHTML(day, real) {
 }
 
 /* 详情页要显示 YouTube / 原站链接，得再取一次详情。
-   按「当前展示的候选 id」判断是否已取过，切页、换照片都会自动重取。 */
+   按「当前展示的候选 id」判断是否已取过，切页会自动重取。
+
+   ⚠️ 这里的守卫原来是 `state.imgSrc !== 'real'`（只有「真实照片」模式才去取详情）。
+      2026-10-09 真实照片下线时把 state.imgSrc 整个删掉了 → 那个判断变成
+      `undefined !== 'real'` = 恒真 → 这个函数**永远提前返回**，详情再也取不到，
+      详情页的「YouTube 演示」「菜谱原始出处」两个链接就凭空消失了。
+      现在 d.real 的唯一用途就是喂「做法链接」，所以详情照取。 */
 let detBusy = false;
 async function ensureRealDetail() {
-  if (state.imgSrc !== 'real' || USE_BACKEND || state.view !== 'day' || detBusy) return;
+  if (USE_BACKEND || state.view !== 'day' || detBusy) return;
   const d = day(state.plan, state.dayId);
-  const r = d && d.real;
-  if (!r || !r.list || !r.list.length) return;
-  const pick = r.list[Math.min(Math.max(r.i || 0, 0), r.list.length - 1)];
-  if (!pick || (r.det && r.det.id === pick.id)) return;
+  const pick = realCurrent(d);
+  if (!pick || (d.real.det && d.real.det.id === pick.id)) return;
   detBusy = true;
   try { await lookupRealDetail(d); writeMenus(); }
   finally { detBusy = false; }
   render();
 }
 
-/* 当前这道菜该显示哪张真实照片（没命中返回空串） */
-function realPick(day) {
+/* 当前该用哪条 TheMealDB 候选 —— 没有候选就返回 null。
+   ⚠️ realPick() / realMiss() 已随「真实照片」功能一起删除（2026-10-09）：
+      前者决定用 TheMealDB 的哪张实拍图，后者判断「查过但没有同做法」时怎么兜底说明。
+      现在 d.real 只服务「做法链接」，所以只剩下「取当前候选」这一件事。 */
+function realCurrent(day) {
   const r = day && day.real;
   if (!r || !r.list || !r.list.length) return null;
   return r.list[Math.min(Math.max(r.i || 0, 0), r.list.length - 1)] || null;
-}
-
-/* 真实照片模式「查过了、但一张做法相同的都没找到」——
-   详情页要说明为什么这一天用的是 AI 图，不能让用户以为坏了 */
-function realMiss(day) {
-  if (USE_BACKEND || state.imgSrc !== 'real') return false;
-  const r = day && day.real;
-  return !!r && (!r.list || !r.list.length);
 }
 
 /* =========================================================================
@@ -2759,10 +2806,9 @@ const state = {
      值是 {u: 图片链接, d: 压好的 data URL（可选）, t: 生成时间} ——
      链接会过期，data URL 不会，所以能压就压。 */
   imgCache: {},
-  /* 配图来源：'real' = TheMealDB 的真实菜品照片（默认）｜ 'ai' = SiliconFlow 生成。
-     真实照片免费、无需 Key，但**只是同食材的相近菜品照片，不是这道菜的实拍** ——
-     界面上必须写清楚，不能让用户误以为就是这道菜的照片。 */
-  imgSrc: 'real',
+  /* ⚠️ 这里原本是「配图来源」开关（'real' = TheMealDB 实拍 / 'ai' = AI 生成）。
+     用户 2026-10-09 明确要求下线真实照片 → 配图一律 AI，state.imgSrc 整个删掉。
+     要恢复的话：TheMealDB 的匹配规则与打分都还在（REFERENCE §五）。 */
   /* 步骤配图：true = 「详细做法」每一步配一张示意图（默认）。
      只在打开详情页时按需生成，不影响首页，也不影响生成菜单的耗时。 */
   stepImg: true,
@@ -2819,7 +2865,6 @@ function readLS() {
     const kt = localStorage.getItem(LS.kcaltgt);
     if (kt && KCAL_BANDS.some((b) => b.k === kt)) state.kcalTarget = kt;
     state.seen = localStorage.getItem(LS.seen) === '1';
-    const s = localStorage.getItem(LS.imgsrc); if (s === 'ai' || s === 'real') state.imgSrc = s;
     const c = JSON.parse(localStorage.getItem(LS.imgcache) || '{}');
     if (c && typeof c === 'object') state.imgCache = c;
     const si = localStorage.getItem(LS.stepimg);
@@ -2831,7 +2876,31 @@ function readLS() {
 function writeMenus() { try { localStorage.setItem(LS.menus, JSON.stringify(state.menus)); } catch (e) {} }
 function writeImgs()  { try { localStorage.setItem(LS.imgs,  JSON.stringify(state.imgs));  } catch (e) {} }
 /* 配图缓存可能很大（data URL 一条几十 KB），单独写、单独兜底 */
-function writeImgCache() {
+/* ⚠️ **不要每生成一张图就把整个缓存写一遍 localStorage。**
+   stepCache 最多 36 条 × ~50KB ≈ 1.8MB；每张图都 JSON.stringify 一遍再写盘，
+   等于把 1.8MB 反复序列化几十次，主线程被拖成幻灯片 ——
+   这是「网页延迟也很高」的另一个主要来源（另一个是步骤图一次性排队）。
+
+   所以 writeImgCache / writeStepCache 这两个**名字保持不变**（调用点不用动），
+   但实现改成「合并写入」：改完 700ms 内没有新改动才真正落盘；
+   图片队列排空（pumpImages 结束）时立刻 flush，保证切页/关页不丢数据。 */
+let cacheTimer = null;
+function scheduleCacheWrite() {
+  if (cacheTimer) return;
+  cacheTimer = setTimeout(() => { cacheTimer = null; writeImgCacheNow(); writeStepCacheNow(); }, 700);
+}
+function flushCacheWrites() {
+  if (cacheTimer) { clearTimeout(cacheTimer); cacheTimer = null; }
+  writeImgCacheNow();
+  writeStepCacheNow();
+}
+/* 关页 / 切到后台时补一次，别把刚生成的图丢掉 */
+try { window.addEventListener('pagehide', flushCacheWrites); } catch (e) {}
+
+function writeImgCache() { scheduleCacheWrite(); }
+function writeStepCache() { scheduleCacheWrite(); }
+
+function writeImgCacheNow() {
   try { localStorage.setItem(LS.imgcache, JSON.stringify(state.imgCache)); }
   catch (e) {
     /* 多半是 localStorage 写满了 —— 把最旧的离线副本丢掉再存一次，
@@ -2845,7 +2914,7 @@ function writeImgCache() {
 }
 /* 步骤图缓存比菜图缓存更容易把 localStorage 写满（一张 ~50KB × 最多 36 张）。
    写不下就把最旧的一半的离线副本（data URL）丢掉，链接还留着 —— 功能不会整个挂掉。 */
-function writeStepCache() {
+function writeStepCacheNow() {
   try { localStorage.setItem(LS.stepcache, JSON.stringify(state.stepCache)); }
   catch (e) {
     const keys = Object.keys(state.stepCache)
@@ -2873,15 +2942,9 @@ function isFallback(plan) { return !state.menus[plan || state.plan] && !!FALLBAC
 function imgUrl(plan, dayId) {
   const d = day(plan, dayId);
   if (!d) return '';
-  /* 直连模式 · 真实照片：命中 TheMealDB 就用它的实拍照片；
-     没命中（list 为空）就往下走，自动退回 AI 图 —— 绝不出现空白。 */
-  if (!USE_BACKEND && state.imgSrc === 'real') {
-    const p = realPick(d);
-    if (p) return p.thumb;
-    /* 还在查 TheMealDB（d.real 尚未写入）→ 先返回空串显示占位图，
-       避免白生成一张马上要被替换掉的 AI 图；查完没命中才落到下面的 AI 分支。 */
-    if (!d.real) return '';
-  }
+  /* ⚠️ 真实照片（TheMealDB 实拍）已于 2026-10-09 按用户要求下线 ——
+     配图只有 AI 一种，这里不再有「命中真实照片就用它的图」的分支。
+     TheMealDB 仍在查（见 lookupRealDish），但产物只用于生成「做法链接」。 */
   /* 直连模式 · AI 图：**生成菜单的那一刻配图就已经在做了**，不需要用户再点。
      地址来自本地缓存（imgCache）：有就直接显示，没有就先占位，
      由串行队列去 SiliconFlow 现生成一张再换上来。 */
@@ -3045,8 +3108,8 @@ function renderHome() {
   const serv = d.servings || COMPANY;
   const baseTotal = num(d.total_g) || (d.ing || []).reduce((s, i) => s + num(i.g), 0);
   const aiImg = !!imgUrl(state.plan, d.id);
-  const real = realPick(d);          // 命中「做法相同」的 TheMealDB 菜谱时才有值，否则 null
-  const realTried = realMiss(d);     // 查过了但没有同做法的 → 详情页要说明为什么用了 AI 图
+  /* ⚠️ 真实照片（TheMealDB 实拍）已下线：配图只有 AI 一种，所以这里不再有
+     realPick / realMiss —— 「真实照片」徽标、来源说明、「换一张真实照片」按钮全部删除。 */
 
   let html = '<div class="wrap">';
 
@@ -3083,26 +3146,10 @@ function renderHome() {
     (thumbUrl(d) ? ' style="background-image:url(' + esc(thumbUrl(d)) + ')"' : '') + '>' +
     (thumbUrl(d) ? '<img src="' + esc(imgDisplaySrc(src, thumbUrl(d))) + '" data-src="' + esc(src) + '" data-day="' + esc(d.id) + '" alt="' + esc(d.title) + '">' : phHTML(d.type, 92)) +
     '<span class="badge">' + esc(d.tn) + '</span>' +
-    (real ? '<span class="ai realph">真实照片</span>' : (aiImg ? '<span class="ai">AI 生成配图</span>' : '')) + '</div>';
-  /* 真实照片必须写清来源与「不是这道菜的实拍」—— 这是诚信问题，
-     宁可少一点观感，也不能让用户以为这就是他中午吃的那盘。 */
-  if (real) {
-    html += '<div class="imgcred">真实照片来自 <b>TheMealDB</b> 的「' + esc(real.name) + '」' +
-      (real.area ? '（' + esc(real.area) + '）' : '') +
-      ' —— 同为「' + esc(TECH_CN[dayTechnique(d)] || '零油烟') + '」做法的相近菜品，<b>不是这道菜的实拍</b>。</div>';
-  } else if (realTried) {
-    /* 库里没有「做法相同」的菜（实测：烤鱼 —— 只有炖鱼、煎鱼、鱼汤）。
-       与其放一张做法不对的图，不如退回 AI 图并把原因说清楚。 */
-    html += '<div class="imgcred">这一天在 <b>TheMealDB</b> 里没找到「' +
-      esc(TECH_CN[dayTechnique(d)] || '零油烟') + '」做法的「' + esc(proteinName(d)) +
-      '」，已自动改用 AI 配图（可在「设置 → 配图来源」切回真实照片）。</div>';
-  }
-  /* 配图随菜单自动生成，所以这里**不再有「生成 / 换一张 AI 配图」按钮** ——
-     只有「真实照片」命中多个同做法候选时，才留一个翻页按钮。 */
-  if (!USE_BACKEND && real && (d.real.list || []).length > 1) {
-    html += '<div class="acts"><button class="btn ghost sm" data-act="image" data-arg="' + d.id + '"' +
-      (state.busy ? ' disabled' : '') + '>换一张真实照片</button></div>';
-  }
+    (aiImg ? '<span class="ai">AI 生成配图</span>' : '') + '</div>';
+  /* ⚠️ 配图只有 AI 一种，所以每道菜只显示生成的那一张：
+     以前这里还会按 realPick 显示「真实照片」徽标 + 来源说明（TheMealDB 的相近菜品），
+     以及候选翻页按钮「换一张真实照片」—— 用户明确要求下线真实照片，整块已删除。 */
   html += '<div class="secttl"><h3>本餐份数换算</h3></div>';
   html += '<div class="card serve">' +
     '<span class="lab">本餐份数</span>' +
@@ -3228,7 +3275,7 @@ function renderHome() {
   }
 
   /* 做法视频 / 图文教程 */
-  html += recipeLinksHTML(d, real);
+  html += recipeLinksHTML(d, realCurrent(d));   // 真实照片已下线，候选只用来拼「做法链接」
 
   /* 亮点 */
   if ((d.hl || []).length) {
@@ -3690,23 +3737,17 @@ function renderSetup() {
         'Qwen-Image 细节最好，但更慢、图也更大。换模型后已生成的图会重新画。</div></div>') +
       '<div class="setrow"><label for="si">详细做法的步骤配图</label>' +
       '<select id="si">' +
-        opt('1', state.stepImg ? '1' : '0', '开启 · 每一步配一张示意图（打开详情页时按需生成）') +
-        opt('0', state.stepImg ? '1' : '0', '关闭 · 只显示文字做法') +
+        /* ⚠️ 第二个 opt 原来也传 state.stepImg ? '1' : '0' —— 开启时两个选项都带
+           selected，浏览器只会认最后一个，表现成「选不中」。关掉时要给空串。 */
+        opt('1', state.stepImg ? '1' : '0', '开启 · 每一步配一张示意图（滚到做法区才生成）') +
+        opt('0', state.stepImg ? '' : '0', '关闭 · 只显示文字做法') +
       '</select>' +
-      '<div class="hint">开启后，打开某一天的详情页会**按需**为每一步生成一张示意图，' +
+      '<div class="hint">开启后，<b>滚动到「详细做法」那一段</b>才会为每一步生成一张示意图，' +
       '一张约 8 秒、依次淡入，出过的图永久缓存在本地、不会重复生成。' +
-      '它只影响详情页，不影响首页配图，也不拖慢「生成菜单」。' +
+      '打开页面时不会一次性排 7 张图，所以不影响首屏速度，也不拖慢「生成菜单」。' +
       (USE_BACKEND ? '（后端模式暂不支持步骤配图）' : '需要 SiliconFlow Key。') + '</div></div>' +
-      '<div class="setrow"><label for="is">配图来源</label>' +
-      '<select id="is">' +
-        opt('real', state.imgSrc, '真实照片 · TheMealDB（免费、无需 Key、国内可直连）') +
-        opt('ai',   state.imgSrc, 'AI 生成配图 · ' + imgModel()) +
-      '</select>' +
-      '<div class="hint"><b>真实照片</b>：先按食材筛，再<b>只留做法相同</b>的（烤配烤、白灼配白灼、' +
-      '炖煮配炖煮），煎炸与做法不符的直接淘汰，并附原菜谱与 YouTube 演示；' +
-      '缺点是它仍是<b>相近菜品，不是这道菜的实拍</b>。库里没有同做法菜品时自动退回 AI 图。' +
-      '<b>AI 配图</b>：按这道菜的菜名与食材现画一张，一定贴合本菜，但属于生成图。' +
-      '两者都免费、随时可切。</div></div>' +
+      /* ⚠️ 这里原来是「配图来源」下拉（真实照片 / AI 生成）。
+         真实照片已于 2026-10-09 下线，配图一律 AI，所以整行删除。 */
       '<div style="display:flex;gap:10px;flex-wrap:wrap">' +
         '<button class="btn sm" data-act="savset">保存设置</button>' +
         '<button class="btn ghost sm" data-act="testkey">测试连接</button>' +
@@ -3725,31 +3766,22 @@ function renderSetup() {
         '<li>Key 来源：<b>' + (own ? '你自己填的' : '内置默认') + '</b></li>') +
     '<li>菜单来源：<b>' + (isFallback(state.plan) ? '内置保底菜谱' : 'AI 已生成（保存在本地）') + '</b></li>' +
     '<li>配图：<b>' + (USE_BACKEND ? Object.keys(state.imgs).length + ' 张已缓存'
-      : (state.imgSrc === 'real' ? '真实照片 · TheMealDB'
-        : 'AI 生成 · ' + imgModel() + '（本地已缓存 ' + Object.keys(state.imgCache).length + ' 张）')) + '</b></li>' +
+      : 'AI 生成 · ' + imgModel() + '（本地已缓存 ' + Object.keys(state.imgCache).length + ' 张）') + '</b></li>' +
     '<li>接口地址：<span style="font-size:12px;color:var(--ink-3)">' + esc(API_BASE) + '</span></li>' +
     '</ul></div>';
 
-  const realOn = !USE_BACKEND && state.imgSrc === 'real';
   html += '<div class="card ab" style="margin-top:16px"><h4>关于配图</h4><ul>' +
-    (realOn
-      ? '<li>当前用 <b>真实照片</b>：来自 <b>TheMealDB</b>（免费、无需 API Key、国内可直连）。' +
-        '匹配分两步：先按荤菜/主食/蔬菜的英文食材词筛出候选，' +
-        '再<b>按做法打分</b>（烤 / 蒸 / 白灼 / 焯水 / 炖煮 / 凉拌），煎炸和做法不符的直接淘汰。</li>' +
-        '<li>⚠️ 照片是<b>同做法的相近菜品，不是这道菜的实拍</b> —— 详情页会标明来源与原始菜名，请不要去掉这个说明。</li>' +
-        '<li>同时附上该菜谱的 <b>YouTube 做法演示</b>与原文链接；抖音 / 小红书 / B站 / 下厨房 提供搜索深链，搜索词里带上了这道菜的做法与「零油烟 地中海」。</li>'
-      : '<li>配图由 <b>' + esc(imgModel()) + '</b> 生成（硅基流动 SiliconFlow）。' +
-        '⚠️ 原本想用的 <b>FLUX 已经下架</b>，现在默认 Z-Image-Turbo —— 快、稳、食物摄影效果好。' +
-        '模型可在上面切换。</li>') +
+    '<li>配图由 <b>' + esc(imgModel()) + '</b> 生成（硅基流动 SiliconFlow）。' +
+    '⚠️ 原本想用的 <b>FLUX 已经下架</b>，现在默认 Z-Image-Turbo —— 快、稳、食物摄影效果好。' +
+    '模型可在上面切换。</li>' +
     (USE_BACKEND
       ? '<li>图片链接带签名、有效期约 7 天，所以本页缓存的是<b>链接</b>而不是图片本身。</li>'
-      : (realOn
-          ? '<li>没有「做法相同」的菜品时（例如<b>烤鱼</b> —— 库里只有炖鱼、煎鱼和鱼汤），' +
-            '这一天会自动退回 AI 配图并在详情页说明，不会出现空白或破图。</li>'
-          : '<li>硅基流动返回的图片链接<b>会过期</b>（Z-Image / Qwen 约 24 小时，Kolors 只有 1 小时），' +
-            '所以本页会把图<b>压成小图存进浏览器本地</b>（data URL，永不过期）；' +
-            '取不到字节时退化成「存链接 + 过期后重新画」。</li>')) +
-    '<li>页面会在配图上标注「AI 生成配图」或「真实照片」，这是法规与诚信要求，请勿去除。</li></ul></div>';
+      : '<li>硅基流动返回的图片链接<b>会过期</b>（Z-Image / Qwen 约 24 小时，Kolors 只有 1 小时），' +
+        '所以本页会把图<b>压成小图存进浏览器本地</b>（data URL，永不过期）；' +
+        '取不到字节时退化成「存链接 + 过期后重新画」。</li>') +
+    '<li>页面会在配图上标注「AI 生成配图」，这是法规与诚信要求，请勿去除。</li>' +
+    '<li><b>做法链接</b>仍来自 TheMealDB 检索：命中同做法的菜谱给原文与 YouTube 演示，' +
+    '抖音 / 小红书 / B站 / 下厨房 给搜索深链。<b>只取链接，不取它的照片。</b></li></ul></div>';
   html += '</div></div></section></div>';
   $('#app').innerHTML = html;
 }
@@ -3844,7 +3876,7 @@ function render() {
   else if (state.view === 'setup') renderSetup();
   else renderHome();
   renderLayers();
-  ensureReal();                     // 真实照片模式：缺图的先补齐（异步，补完自动重渲染）
+  ensureReal();                     // 补齐做法链接的检索数据（异步，补完自动重渲染）
   ensureRealDetail();               // 详情页：补取 YouTube / 原站链接
   queueImages();                    // 新渲染出来的配图入队，一张一张加载
   revealReadyImages();              // 缓存命中（data URL）的那些下一帧淡入，避免硬切
@@ -3925,10 +3957,8 @@ async function doGenWeek() {
            于是同一道菜被生成两次、额度白烧）。 */
         d.img_seed = Math.floor(Math.random() * 1000000);
         delete d.real;
-        /* AI 配图：文字一好就排队出图。
-           真实照片模式先不排 —— 得等 TheMealDB 查完才知道哪天要退回 AI 图
-           （鱼日必然查不到真实照片），见下面配图收尾那一段。 */
-        if (state.imgSrc === 'ai') prefetchDayImage(d);
+        /* AI 配图：文字一好就排队出图（配图现在只有 AI 一种，无条件排队）。 */
+        prefetchDayImage(d);
         return d;
       }));
       results.forEach((d) => days.push(d));
@@ -3944,18 +3974,17 @@ async function doGenWeek() {
     const oldServ = old.days && old.days[0] ? old.days[0].servings : COMPANY;
     days.forEach((d) => { d.servings = oldServ || COMPANY; });
 
-    /* ---- 配图收尾：**全部弄好再进首页** ----
-       用户明确要求首页直接就是 AI 图，不要先闪一下内置的离线占位图。
-       ① 真实照片模式：先把 5 天的 TheMealDB 匹配查完（并行、很快）；
-          没匹配到的天（鱼日必然如此）退回 AI 图，提前生成好；
-       ② AI 配图模式：预取在生成文字的过程中已经并行跑了，这里只等它排空。 */
-    if (!USE_BACKEND && state.imgSrc === 'real') {
-      busyMsg('正在为这周的菜匹配真实照片…', 91);
+    /* ---- 收尾：**全部弄好再进首页** ----
+       ① 先并行查 TheMealDB —— 真实照片已下线，这一步现在只为「做法链接」取数据
+          （原菜谱 / YouTube 演示 / 各平台搜索深链）；
+       ② AI 配图在生成文字的过程中已经并行预取了，这里只等它排空。
+       用户明确要求首页直接就是 AI 图，不要先闪一下内置的离线占位图。 */
+    if (!USE_BACKEND) {
+      busyMsg('正在检索这几天的做法链接…', 91);
       await Promise.all(days.map(async (d) => {
         try { d.real = await lookupRealDish(d); }
         catch (e) { d.real = { q: '', tech: dayTechnique(d), list: [], i: 0 }; }
       }));
-      days.forEach((d) => { if (!realPick(d)) prefetchDayImage(d); });
     }
     if (!USE_BACKEND && imgPreTotal) {
       await waitPrefetch((done, total) => {
@@ -4237,19 +4266,6 @@ async function regenViaBackend(d, id) {
 async function doImage(id) {
   const d = day(state.plan, id);
   if (!d || state.busy) return;
-
-  /* 直连模式 · 真实照片：在候选里往后翻一张（TheMealDB 里同为这个做法的其它菜品）。
-     真实照片是查出来的、不是生成的，所以「换一张」= 换候选，瞬间完成。 */
-  if (!USE_BACKEND && state.imgSrc === 'real' && realPick(d)) {
-    const list = (d.real && d.real.list) || [];
-    if (list.length <= 1) { toast('这个做法只匹配到一张真实照片，可在「设置」里切回 AI 配图'); return; }
-    d.real.i = ((d.real.i || 0) + 1) % list.length;
-    delete d.real.det;                 // 换了候选，YouTube / 原站链接要重取
-    writeMenus();
-    render();
-    toast('已换成「' + (list[d.real.i].name || '另一张') + '」');
-    return;
-  }
 
   /* 直连模式的 AI 配图已经随菜单自动生成，页面上没有对应的按钮 —— 走到这里直接返回。 */
   if (!USE_BACKEND) return;
@@ -4952,7 +4968,6 @@ document.addEventListener('click', function (ev) {
     case 'savset': {
       const k = ($('#k') || {}).value;
       const m = ($('#m') || {}).value;
-      const is = ($('#is') || {}).value;
       const si = ($('#si') || {}).value;
       const ik = ($('#ik') || {}).value;
       const im = ($('#im') || {}).value;
@@ -4961,21 +4976,19 @@ document.addEventListener('click', function (ev) {
       try {
         if (k != null) { if (k.trim()) localStorage.setItem(LS.key, k.trim()); else localStorage.removeItem(LS.key); }
         if (m) localStorage.setItem(LS.model, m);
-        if (is === 'ai' || is === 'real') localStorage.setItem(LS.imgsrc, is);
         if (si === '0' || si === '1') localStorage.setItem(LS.stepimg, si);
         if (ik != null) { if (ik.trim()) localStorage.setItem(LS.imgkey, ik.trim()); else localStorage.removeItem(LS.imgkey); }
         if (im) localStorage.setItem(LS.imgmodel, im);
         if (kt) localStorage.setItem(LS.kcaltgt, kt);
         localStorage.setItem(LS.avoid, JSON.stringify(av));
       } catch (e) {}
-      if (is === 'ai' || is === 'real') state.imgSrc = is;
       if (si === '0' || si === '1') state.stepImg = (si === '1');
       if (kt) state.kcalTarget = kt;
       state.avoid = av;
       render();
       toast(av.length
         ? ('已保存，生成新菜单时会避开：' + av.map((x) => AVOID_LABEL[x]).join('、'))
-        : (state.imgSrc === 'real' ? '已切到真实照片，正在按食材匹配…' : '设置已保存'));
+        : '设置已保存');
       break;
     }
     case 'testkey':
@@ -5151,8 +5164,9 @@ window.HL = {
   DEFAULT_IMG_KEY, IMG_SF_BASE, IMG_SF_API, IMG_SF_MODELS, IMG_SF_DEFAULT,
   IMG_SF_TTL, IMG_SF_STEPS, imgKey, imgModel, imgSize, imgHash,
   imgCacheKey, imgCacheGet, imgCachePut, sfGenerate, ensureAiImage, shrinkImage, writeImgCache,
-  /* 真实照片 / 做法链接（供测试与调试） */
-  MEAL_API, MEAL_SITE, realQueries, lookupRealDish, lookupRealDetail, realPick, realMiss,
+  flushCacheWrites, observeStepImages, queueStepImage,
+  /* 做法链接（供测试与调试）—— 真实照片已下线，只留检索侧 */
+  MEAL_API, MEAL_SITE, realQueries, lookupRealDish, lookupRealDetail, realCurrent,
   recipeLinksHTML, recipeKeyword, ensureReal, RECIPE_PLATFORMS, MEAL_PROTEIN, MEAL_MED,
   MEAL_MED_C, MEAL_MAX_Q, MEAL_MAX, MEAL_MIN_SCORE, MEAL_REJECT, MEAL_WET, MEAL_DRY,
   MEAL_MEAT, MEAL_FLAVOR, TECH_ORDER, TECH_WORDS, TECH_CN,
