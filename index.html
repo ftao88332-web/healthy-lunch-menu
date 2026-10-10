@@ -509,8 +509,11 @@ main{padding-bottom:24px}
 .ppmask{position:fixed;inset:0;background:rgba(16,32,48,.42);z-index:58}
 .pricepop{position:fixed;z-index:59;left:50%;top:50%;transform:translate(-50%,-50%);
   width:min(440px,calc(100vw - 32px));background:#fff;border-radius:18px;padding:22px 22px 18px;
+  max-height:calc(100vh - 40px);overflow-y:auto;
   box-shadow:0 24px 60px rgba(16,32,48,.28)}
 .pricepop h4{font-size:16px;color:var(--navy);margin-bottom:8px}
+.pricepop .ppsec{font-size:12px;font-weight:700;color:var(--ink-3);letter-spacing:.04em;margin:0 0 7px}
+.pricepop .ppacts2{justify-content:flex-start;margin-bottom:14px}
 .pricepop .pn{font-size:12.5px;color:var(--ink-2);line-height:1.8;margin-bottom:14px}
 .pplist{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
 .pplist a{display:flex;flex-direction:column;gap:3px;padding:11px 13px;border-radius:12px;text-decoration:none;
@@ -3642,20 +3645,47 @@ function renderHomeEmpty() {
 }
 
 
-/* ---------- 参考菜价（AI 联网估算 + 四平台官方入口） ---------- */
-/* ⚠️ 实测（真实 Chrome 逐个打开，2026-10-09）：这四家**都没有可用的网页版商品搜索**，
-   所以只能给「官方入口」，让用户点进去自己搜 —— 绝不能伪造成「搜索深链」，那是假链接。
-     · 盒马     www.freshippo.com          首页只有页脚，无搜索框；/search* 一律跳 error.taobao.com
-     · 多点     i.dmall.com/newDmall.html  消费端 H5，渲染后 0 个输入框、要登录
-                                            （dmall.com 是「多点数智」企业官网，不是店铺）
-     · 美菜     www.meicai.cn              首页路由只有 #/download_app 等，根本没有搜索路由
-     · 多多买菜 mobile.yangkeduo.com       search_result.html 直接跳登录页
-   这四个入口都实测「能打开」，这是能给的最诚实的东西。 */
-const PRICE_PLATFORMS = [
-  { k:'hema',   n:'盒马',     u:'https://www.freshippo.com/',        t:'官网 · 在 App 内搜索' },
-  { k:'dmall',  n:'多点',     u:'https://i.dmall.com/newDmall.html', t:'H5 · 需登录' },
-  { k:'meicai', n:'美菜',     u:'https://www.meicai.cn/',            t:'官网 · 面向商户' },
-  { k:'pdd',    n:'多多买菜', u:'https://mobile.yangkeduo.com/',     t:'拼多多 H5 · 需登录' }
+/* ---------- 参考菜价（AI 联网估算 + 去平台搜这个食材） ---------- */
+/* ⚠️ 下面两组都是**真实 Chrome 逐个实测**出来的结论（2026-10-10，CDP 驱动），
+   判据不是 HTTP 200，而是「点开之后到底看到什么」。
+
+   【第一组 PRICE_APPS】用户实际在用的买菜平台，**全都没有网页版商品搜索**：
+     · 盒马      www.freshippo.com           企业官网，0 个搜索框
+                 www.hema.com               是荷兰 HEMA 百货（域名跟盒马无关）
+                 hema.tmall.com             天猫店已关 → store.taobao.com/shop/noshop.htm
+     · 美菜      www.meicai.cn               企业官网 0 个搜索框
+                 www.meicai.cn/#/mall       商城路由渲染出**完全空白页**（0 输入框/无文字）
+     · 多多买菜  mobile.yangkeduo.com/duoduo_caigou.html
+                                            被重定向到拼多多综合门户 portal.html，
+                                            0 个搜索框，顶部写「在App打开」
+     · 叮咚买菜  www.100.me                  企业官网 0 个搜索框
+                 www.ddmai.com              连接被拒 ERR_CONNECTION_CLOSED
+     · 小象超市  maicai.meituan.com / mall.meituan.com
+                                            两个域名是**同一个企业宣传页**，0 个搜索框
+   → 这组**故意不给任何链接**：给了也只是首页，用户明确说过「官方入口没用」。
+     只提供「复制食材名」，并说清只能开 App 粘贴。
+     ⚠️ 别自作聪明给官网首页，也别给 App scheme —— 盒马/叮咚/美菜/小象 的
+        URL scheme 都没有公开可靠的记录，写上去就是假链接。
+
+   【第二组 PRICE_SEARCH】网页版**能直接出搜索结果**的四家，点开就是这个食材的结果页：
+     苏宁易购 search.suning.com/{kw}/         免登录，直接出商品列表 + 价格 ✅
+     淘宝     s.taobao.com/search?q={kw}      搜索页正常渲染，需登录才出商品
+     京东     search.jd.com/Search?keyword={kw}  跳 passport.jd.com 且带 ReturnUrl
+     拼多多   mobile.yangkeduo.com/search_result.html?search_key={kw}
+                                              跳 login.html 且带 from（登录后回结果页）
+     ⚠️ 后三家在「无 Cookie 的浏览器」里会先弹登录 —— 那是**正常登录流程**，
+        不是死链；真实用户浏览器里是登录态，点开即出结果。
+   ⚠️ 千万**不要**把这两组的 URL 退回成首页，那正是被否掉的老做法。 */
+const PRICE_APPS = ['盒马', '美菜', '多多买菜', '叮咚买菜', '小象超市'];
+const PRICE_SEARCH = [
+  { k:'suning', n:'苏宁易购', t:'免登录 · 直接出结果',
+    u:(kw) => 'https://search.suning.com/' + encodeURIComponent(kw) + '/' },
+  { k:'tb',     n:'淘宝',     t:'需登录淘宝',
+    u:(kw) => 'https://s.taobao.com/search?q=' + encodeURIComponent(kw) },
+  { k:'jd',     n:'京东',     t:'需登录京东',
+    u:(kw) => 'https://search.jd.com/Search?keyword=' + encodeURIComponent(kw) + '&enc=utf-8' },
+  { k:'pdd',    n:'拼多多',   t:'手机打开 · 需登录',
+    u:(kw) => 'https://mobile.yangkeduo.com/search_result.html?search_key=' + encodeURIComponent(kw) }
 ];
 
 /* 参考价统一按「元/500g」（也就是常说的「一斤」），最符合买菜习惯 */
@@ -3713,19 +3743,30 @@ function buildPricePrompt(names) {
     '\n\n请联网检索，按系统消息里的 JSON 格式返回每项的参考零售价（元/500g）。';
 }
 
-/** 「去别的平台比价」浮层 */
+/** 「去平台搜这个食材」浮层。
+    ⚠️ 第二组给的是**该食材的搜索结果页**，不是平台首页 —— 这是用户明确要的。 */
 function pricePopHTML(kw) {
   return '<div class="ppmask" data-act="closepricepop"></div>' +
-    '<div class="pricepop" role="dialog" aria-label="去别的平台比价">' +
-    '<h4>去别的平台搜「' + esc(kw) + '」</h4>' +
-    '<p class="pn">⚠️ 盒马 / 多点 / 美菜 / 多多买菜 <b>都没有网页版商品搜索</b>（都是 App 优先），' +
-    '所以这里给的是<b>官方入口</b>，点开后在站内或 App 里搜索。食材名已复制到剪贴板，粘贴即可。</p>' +
-    '<div class="pplist">' + PRICE_PLATFORMS.map((p) =>
-      '<a href="' + p.u + '" target="_blank" rel="noopener noreferrer">' +
+    '<div class="pricepop" role="dialog" aria-label="去平台搜这个食材">' +
+    '<h4>搜「' + esc(kw) + '」</h4>' +
+
+    '<div class="ppsec">你常用的 · 只能在 App 里搜</div>' +
+    '<p class="pn">' + esc(PRICE_APPS.join(' / ')) +
+    ' <b>都没有网页版商品搜索</b>（实测：官网只有企业介绍、商城只在 App 里），' +
+    '所以这里不给首页链接。先把名称复制走，打开 App 粘贴即可。</p>' +
+    '<div class="ppacts ppacts2">' +
+    '<button class="btn sm" data-act="copykw" data-arg="' + esc(kw) + '">复制「' + esc(kw) + '」</button>' +
+    '</div>' +
+
+    '<div class="ppsec">网页能直接搜的 · 点开就是结果页</div>' +
+    '<p class="pn">苏宁不用登录；淘宝 / 京东 / 拼多多会先请你登录，' +
+    '登录后自动跳回搜索结果。</p>' +
+    '<div class="pplist">' + PRICE_SEARCH.map((p) =>
+      '<a href="' + esc(p.u(kw)) + '" target="_blank" rel="noopener noreferrer">' +
       '<b>' + esc(p.n) + ' ↗</b><span>' + esc(p.t) + '</span></a>').join('') + '</div>' +
+
     '<div class="ppacts">' +
-      '<button class="btn sm" data-act="copykw" data-arg="' + esc(kw) + '">复制食材名</button>' +
-      '<button class="btn ghost sm" data-act="closepricepop">关闭</button>' +
+    '<button class="btn ghost sm" data-act="closepricepop">关闭</button>' +
     '</div></div>';
 }
 
@@ -3912,7 +3953,8 @@ function renderShop() {
     '<span>参考价合计约 <b>' + (pt.known ? ('¥' + pt.sum.toFixed(1)) : '—') + '</b>' +
     '（按 ' + serv + ' 人份，' + pt.known + '/' + nPriced + ' 项食材已估，调味料不计）</span>' +
     '<span class="pw">⚠️ 参考价由 AI 联网估算，<b>不是实时价</b>，仅供预算参考。' +
-    '每项食材右侧的 🔍 可打开「盒马 / 多点 / 美菜 / 多多买菜」官方入口去比价。</span></div>';
+    '每项食材右侧的 🔍 可以复制名称（去盒马 / 美菜 / 叮咚等 App 里搜），' +
+    '或直接跳到苏宁 / 淘宝 / 京东 / 拼多多的搜索结果页。</span></div>';
 
   /* 按「买菜动线」分组：肉类 / 水产 / 蔬菜 / 谷物·豆类 / 调味·油脂。
      原来是营养学分法（优质蛋白 / 全谷杂豆主食…），「优质蛋白」里既有肉又有鱼，
@@ -3939,7 +3981,7 @@ function renderShop() {
               : '¥' + priceMoney(up) + '/500g · <b>¥' + st.toFixed(1) + '</b>')) + '</span>' +
         '<span class="g">' + gfmt(i.per * serv) + '</span>' +
         '<button class="pq" data-act="shopsearch" data-arg="' + esc(i.n) + '"' +
-          ' aria-label="在盒马、多点、美菜、多多买菜搜 ' + esc(i.n) + '"' +
+          ' aria-label="搜 ' + esc(i.n) + '：复制名称去买菜 App，或跳到苏宁、淘宝、京东、拼多多" ' +
           ' title="去别的平台比价">🔍</button></div>';
     });
     html += '</div>';
@@ -5070,7 +5112,7 @@ document.addEventListener('click', function (ev) {
     case 'shopsearch':
       if (arg) {
         state.pricePop = arg;
-        copyText(arg, '已复制「' + arg + '」，到平台里粘贴搜索');
+        copyText(arg, '已复制「' + arg + '」，到盒马 / 美菜 / 叮咚等 App 里粘贴即可搜');
         renderLayers();
       }
       break;
@@ -5741,8 +5783,8 @@ window.HL = {
   weekAggHTML, printHTML, doPrint,
   shopText, doCopyShop, doDownloadShop, doPrintShop, printShopHTML,
   todayIdOf, extraLine, legalHTML,
-  /* 参考菜价（AI 估算 + 四平台官方入口，供测试与调试） */
-  PRICE_PLATFORMS, priceOf, priceMoney, priceSubtotal, priceTotal, priceItems, writePrices,
+  /* 参考菜价（AI 估算 + 平台搜索深链，供测试与调试） */
+  PRICE_APPS, PRICE_SEARCH, priceOf, priceMoney, priceSubtotal, priceTotal, priceItems, writePrices,
   pricePopHTML, doFetchPrices, fetchPricesVia, buildPricePrompt, PRICE_SYSTEM, pickPrice, copyText,
   humanErr, errBarHTML,
   pickFromSheet, customFromSheet, changeServ, setServ, testKey, toast,
