@@ -1509,11 +1509,15 @@ function apiKey() {
   const def = deobfKey(DEFAULT_KEY);
   try { return localStorage.getItem(LS.key) || def; } catch (e) { return def; }
 }
-/* AI 配图用的 SiliconFlow Key：用户填的优先，其次才是页面内置的（打包时混淆） */
-function imgKey() {
+/* AI 配图用的 Key —— 跟着当前模型的**供应商**走：
+   · 智谱（默认）→ 和主厨对话共用同一把 Key，页面里已内置，零配置；
+   · 硅基流动 → 用单独的配图 Key（用户填的优先，其次页面内置的，打包时混淆）。 */
+function imgKeyFor(p) {
+  if (p !== 'sf') return apiKey();
   const def = deobfKey(DEFAULT_IMG_KEY);
   try { return localStorage.getItem(LS.imgkey) || def; } catch (e) { return def; }
 }
+function imgKey() { return imgKeyFor(imgProvider()); }
 /* 默认主厨模型：glm-4.5-air。
    实测（2026-09-28）它比 glm-4.7 快 3 倍（20.5s vs 60.2s）、并发 ≥8（4.7 只有 2），
    而且一人份总重 662g、蔬菜 280g 都达标（glm-4.7 反而 525g/240g 都不达标）。
@@ -1725,56 +1729,76 @@ async function generateDay(meta, plan, avoid, extra) {
 }
 
 /* =========================================================================
-   AI 配图（直连模式）· SiliconFlow（硅基流动）
+   AI 配图（直连模式）· 智谱 CogView（默认，免费）+ 硅基流动（可选）
 
-   为什么换掉 Pollinations：
-   - 它曾经提供 FLUX，但 2026-10 实测 `https://image.pollinations.ai/models`
-     只返回 `["sana"]`，而且 **`model` 参数被完全忽略** ——
-     flux / turbo / z-image-turbo 三个名字返回的文件 **md5 一模一样**，
-     也就是说页面上写的模型名是假的，根本拿不到想要的画质。
+   ⚠️ 2026-10-10 按用户要求把**默认供应商换成智谱 CogView-3-Flash**：
+     · 它是**免费**模型，和主厨对话共用同一把 ZHIPU_API_KEY ——
+       页面里本来就内置了，所以「打开即用、零配置」这条承诺不受影响；
+     · 硅基流动那把内置 Key 实测**余额为 0**（`code 30001`），一张图都出不来。
+     · 只放 `cogview-3-flash`：`cogview-4` / `cogview-4-250304` 实测报「余额不足」。
 
-   为什么用 SiliconFlow：
-   - 浏览器可直连（实测预检 `Access-Control-Allow-Origin: *`、`Allow-Headers: *`）；
-   - 出图质量明显更好，免费额度按天计；
-   - 返回的图片**支持跨域读取**（ACAO 回显 Origin），所以能把图压成小图
-     长期存在浏览器里，不必反复生成。
+   ⚠️ 两家有一个**关键差异**，代码必须区别对待（本文件最容易踩的地方）：
+     · 硅基流动的图床允许跨域读字节（s3.siliconflow.cn 回 ACAO），
+       所以能把图压成 data URL **永久**存在浏览器里，不必反复生成；
+     · 智谱的图床 `maas-watermark-prod-new.cn-wlcb.ufileos.com` **不回 CORS 头**
+       （2026-10-10 实测：github.io / null / localhost / `*` 四种 Origin 都没有 ACAO，
+       连 OPTIONS 预检也没有）。浏览器**读不到字节** → canvas 被污染 →
+       toDataURL 抛异常。所以这条路**只能存签名链接**（Expires ≈ 7 天）。
+     好消息：CogView 免费，到期重新生成不花钱；代价是每次进页面要多一次网络往返。
+     ⚠️ `response_format: b64_json` 实测被**静默忽略**，接口仍然只回 url。
 
-   ⚠️ **FLUX 已经在硅基流动下架**：2026-10 实测
-     `black-forest-labs/FLUX.1-schnell` → `{"code":30003,"message":"Model disabled."}`。
-     现在可用的是下面 IMG_SF_MODELS 里的四个，默认 Z-Image-Turbo。
+   ⚠️ 两家都**不是**「URL 即图片」：要 POST 一次拿回一个会过期的链接。
+     智谱 ≈ 7 天；硅基流动 Z-Image / Qwen ≈ 24 小时、Kolors 只有 1 小时。
+     所以都要自己缓存 —— 见 imgCache：能取字节就存 data URL，取不到就存链接 + 到期重生成。
 
-   ⚠️ 它**不是**「URL 即图片」：要 POST 一次，拿回一个**会过期**的链接
-     （Z-Image / Qwen 约 24 小时，Kolors 只有 1 小时）。所以必须自己缓存 ——
-     见 imgCache：能取到字节就压成 data URL 长期留着，
-     取不到就退化成「只存链接 + 过期后重新生成」。
+   ⚠️ 智谱的图**右下角带「AI生成」水印**（《人工智能生成合成内容标识办法》要求），
+     不要试图去掉；前端那个「AI 生成配图」徽标照旧保留。
    ========================================================================= */
+const IMG_ZHIPU_API = 'https://open.bigmodel.cn/api/paas/v4/images/generations';
 const IMG_SF_BASE = 'https://api.siliconflow.cn/v1';
 const IMG_SF_API = IMG_SF_BASE + '/images/generations';
-/* id 必须与硅基流动「模型广场 → 生图」里的一致，写错会返回 Model disabled */
-const IMG_SF_MODELS = [
-  { id: 'Tongyi-MAI/Z-Image-Turbo', n: 'Z-Image-Turbo · 快、稳（默认）',  sz: '1024x1024' },
-  { id: 'Tongyi-MAI/Z-Image',       n: 'Z-Image · 更细腻',                sz: '1024x1024' },
-  { id: 'Qwen/Qwen-Image',          n: 'Qwen-Image · 细节最好，稍慢',      sz: '1328x1328' },
-  { id: 'Kwai-Kolors/Kolors',       n: 'Kolors · 风格化，链接只留 1 小时', sz: '1024x1024' }
+
+/* 配图模型清单。
+   p = 供应商：'zhipu' 用主厨那把 Key（免费），'sf' 用单独的配图 Key（要充值）。
+   第一个就是默认值 —— 免费、零配置，公开分享时最划算。
+   id 必须与各家「模型广场」里的一致，写错会返回 Model disabled。 */
+const IMG_MODELS = [
+  { id: 'cogview-3-flash',          n: 'CogView-3-Flash · 智谱，免费（默认）',         sz: '1024x1024', p: 'zhipu' },
+  { id: 'Tongyi-MAI/Z-Image-Turbo', n: 'Z-Image-Turbo · 硅基流动，快而稳（需充值）',   sz: '1024x1024', p: 'sf' },
+  { id: 'Tongyi-MAI/Z-Image',       n: 'Z-Image · 硅基流动，更细腻（需充值）',         sz: '1024x1024', p: 'sf' },
+  { id: 'Qwen/Qwen-Image',          n: 'Qwen-Image · 硅基流动，细节最好稍慢（需充值）', sz: '1328x1328', p: 'sf' },
+  { id: 'Kwai-Kolors/Kolors',       n: 'Kolors · 硅基流动，风格化（需充值）',          sz: '1024x1024', p: 'sf' }
 ];
-const IMG_SF_DEFAULT = 'Tongyi-MAI/Z-Image-Turbo';
+const IMG_DEFAULT = 'cogview-3-flash';
 const IMG_SF_STEPS = 20;
-/* 链接有效期最短的是 Kolors（1 小时），统一按 50 分钟算，留足余量 */
-const IMG_SF_TTL = 50 * 60 * 1000;
-const IMG_API = IMG_SF_API;                 // 兼容旧引用
-const IMG_MODEL = USE_BACKEND ? (MODELS.image || 'cogview-3-flash') : IMG_SF_DEFAULT;
+/* 链接有效期：Kolors 只有 1 小时 → 统一按 50 分钟算；
+   智谱签名链接约 7 天 → 6.5 天（与后端 IMG_TTL 同一口径，留半天余量）。 */
+const IMG_TTL_SF = 50 * 60 * 1000;
+const IMG_TTL_ZHIPU = 6.5 * 864e5;
+const IMG_MODEL = USE_BACKEND ? (MODELS.image || IMG_DEFAULT) : IMG_DEFAULT;
 
 /* 当前用哪个图像模型（设置里可换）。后端模式由服务端决定，前端不参与。 */
 function imgModel() {
-  if (USE_BACKEND) return MODELS.image || 'cogview-3-flash';
-  try { return localStorage.getItem(LS.imgmodel) || IMG_SF_DEFAULT; }
-  catch (e) { return IMG_SF_DEFAULT; }
+  if (USE_BACKEND) return MODELS.image || IMG_DEFAULT;
+  try { return localStorage.getItem(LS.imgmodel) || IMG_DEFAULT; }
+  catch (e) { return IMG_DEFAULT; }
 }
+/* 当前模型的供应商（'zhipu' | 'sf'）。
+   ⚠️ 认不出来时**按默认的智谱走**，不要抛错 —— 用户 localStorage 里可能存着
+      一个早已下线的模型 id（比如 FLUX），那时整条配图链路不能跟着瘫掉。 */
+function imgProvider() {
+  const m = IMG_MODELS.filter((x) => x.id === imgModel())[0];
+  return (m && m.p) || 'zhipu';
+}
+/* 请求地址：两家都是 POST {model, prompt, ...}，只有端点和参数名不同 */
+function imgApi() { return imgProvider() === 'sf' ? IMG_SF_API : IMG_ZHIPU_API; }
 /* 请求尺寸：每种模型推荐的尺寸不一样（Qwen-Image 用 1328x1328 才不糊） */
 function imgSize() {
-  const m = IMG_SF_MODELS.filter((x) => x.id === imgModel())[0];
+  const m = IMG_MODELS.filter((x) => x.id === imgModel())[0];
   return (m && m.sz) || '1024x1024';
 }
+/* 图片链接的有效期（见 imgCacheGet）：智谱约 7 天，硅基流动最短 1 小时 */
+function imgTtl() { return imgProvider() === 'sf' ? IMG_TTL_SF : IMG_TTL_ZHIPU; }
 
 /* 同一道菜必须稳定出同一张图，否则每次刷新都换一张脸。
    所以 seed 由菜名 + 做法派生（FNV-1a），不用随机数。 */
@@ -1829,7 +1853,7 @@ function imgCacheGet(day) {
   const e = state.imgCache[imgCacheKey(day)];
   if (!e) return '';
   if (e.d) return e.d;                                     // 压好的小图，永不过期
-  if (e.u && Date.now() - (e.t || 0) < IMG_SF_TTL) return e.u;
+  if (e.u && Date.now() - (e.t || 0) < imgTtl()) return e.u;
   return '';                                               // 链接过期了，当作没有
 }
 function imgCachePut(day, url, dataUrl) {
@@ -1875,66 +1899,120 @@ function shrinkImage(url, maxPx, quality) {
   });
 }
 
-/* 调 SiliconFlow 出图，只负责拿回图片地址（不落盘）。
-   菜品主图与步骤示意图都走这里 —— 否则那段错误处理要抄两遍，迟早抄歪。 */
-async function sfRequest(prompt, seed) {
+/* 调配图接口，只负责拿回图片地址（不落盘）。
+   菜品主图与步骤示意图都走这里 —— 否则那段错误处理要抄两遍，迟早抄歪。
+   两家共用这个函数：端点 / 参数名 / 错误码不同，都在里面分支。 */
+async function imgRequest(prompt, seed) {
+  const p = imgProvider();
+  const name = p === 'sf' ? 'SiliconFlow' : '智谱';
   const key = imgKey();
-  if (!key) throw new ApiError('没有 SiliconFlow API Key —— 请在「设置 → AI 配图」里填一个。');
-  const body = {
-    model: imgModel(),
-    prompt: prompt,
-    image_size: imgSize(),
-    num_inference_steps: IMG_SF_STEPS,
-    seed: seed
-  };
+  if (!key) {
+    throw new ApiError(p === 'sf'
+      ? '没有 SiliconFlow API Key —— 请在「设置 → AI 配图」里填一个。'
+      : '没有智谱 API Key —— AI 配图和主厨对话共用同一把 Key，请在「设置」里填一个。');
+  }
+  /* 参数名两家不一样：智谱是 size，硅基流动是 image_size + 步数 + 种子。
+     ⚠️ 不要给智谱塞 seed / num_inference_steps —— 它不接受这些字段。 */
+  const body = p === 'sf'
+    ? { model: imgModel(), prompt: prompt, image_size: imgSize(),
+        num_inference_steps: IMG_SF_STEPS, seed: seed }
+    : { model: imgModel(), prompt: prompt, size: imgSize() };
+
+  /* ⚠️ 智谱的图与主厨对话**共用同一个账号**，429 是按账号限的 ——
+     所以出图前也要走同一道全局冷却闸门，否则「5 天菜单并行生成 + 出图」会一起撞。
+     硅基流动是另一个账号，跟这道闸门无关，不能白等。 */
+  if (p !== 'sf') await gateWait();
+
   let res;
   try {
-    res = await fetch(IMG_SF_API, {
+    res = await fetch(imgApi(), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
       body: JSON.stringify(body)
     });
   } catch (e) {
-    throw new ApiError('连不上 SiliconFlow（网络或跨域被拦），请稍后重试。');
+    throw new ApiError('连不上' + name + '（网络或跨域被拦），请稍后重试。');
   }
   let data = null;
   try { data = await res.json(); } catch (e) { /* 有的错误直接返回纯文本，忽略 */ }
+
+  /* ---- 智谱的错误：挂在 data.error 下，且 code 是**字符串** ----
+     实测：{"error":{"code":"1113","message":"余额不足或无可用资源包,请充值。"}}
+     所以不能只看顶层 data.code。 */
+  const zErr = data && data.error;
+  if (zErr) {
+    const zc = String(zErr.code || '');
+    const zm = String(zErr.message || '');
+    if (zc === '1113' || /余额不足|充值/.test(zm)) {
+      throw new ApiError('智谱账户余额不足 —— 请充值，或把「AI 配图模型」换成免费的 CogView-3-Flash。');
+    }
+    /* ⚠️ 鉴权失败（HTTP 401 / code 1002「令牌已过期或验证不正确」）也要单独认出来。
+       2026-10-10 实测：原来它落到最后那条兜底，用户看到的是
+       「配图生成失败：令牌已过期或验证不正确」—— 完全不知道该去哪儿改。
+       硅基流动那边（30014）早就有「Key 无效」的人话提示，智谱不能少这一条。 */
+    if (res.status === 401 || zc === '1000' || zc === '1001' || zc === '1002' ||
+        zc === '1003' || /令牌|鉴权|认证|无效|过期/i.test(zm)) {
+      throw new ApiError('智谱 API Key 无效或已过期，请在「设置」里更新' +
+        '（AI 配图与主厨对话共用同一把 Key）。');
+    }
+    if (res.status === 429 || zc === '1301' || zc === '1302' || /限流|频率|太快|速率/.test(zm)) {
+      gateCool(6000);
+      throw new ApiError('智谱限流了（出图和主厨共用一份额度），请稍后再试。');
+    }
+    throw new ApiError('配图生成失败：' + (zm || zc || ('HTTP ' + res.status)));
+  }
+
   const code = data && data.code;
   if (!res.ok || (code && code !== 200)) {
     const msg = (data && data.message) || '';
-    if (res.status === 429) throw new ApiError('SiliconFlow 免费额度用满或触发限流，请稍后再试。');
+    if (res.status === 429) {
+      if (p !== 'sf') gateCool(6000);
+      throw new ApiError(name + '触发限流，请稍后再试。');
+    }
     /* ⚠️ 欠费（HTTP 402 / code 30001）必须单独认出来。
-       2026-10-10 实测：账户余额为 0 时每一张图都返回
+       2026-10-10 实测：硅基流动账户余额为 0 时每一张图都返回
        {"code":30001,"message":"Sorry, your account balance is insufficient"}，
        如果只走下面那条兜底，用户看到的是一句英文原文，根本不知道要去充值。
        这正是「照片一直显示不出来」最容易被忽略的一种原因。 */
     if (res.status === 402 || code === 30001) {
-      throw new ApiError('SiliconFlow 账户余额不足，请到官网充值后再生成配图。');
+      throw new ApiError(name + '账户余额不足，请到官网充值后再生成配图。');
     }
     if (code === 30014) throw new ApiError('SiliconFlow Key 无效，请在「设置」里更新。');
     if (code === 30003) throw new ApiError('这个图像模型已下架，请在「设置」里换一个。');
-    if (res.status === 503 || code === 50505) throw new ApiError('SiliconFlow 模型繁忙，请稍后重试。');
+    if (res.status === 503 || code === 50505) throw new ApiError(name + '模型繁忙，请稍后重试。');
     throw new ApiError('配图生成失败（' + res.status + '）：' + (msg || '未知错误'));
   }
-  const url = (data && data.images && data.images[0] && data.images[0].url) || '';
-  if (!url) throw new ApiError('SiliconFlow 没有返回图片地址。');
+
+  /* 两家返回体形状不同：智谱 {data:[{url}]}，硅基流动 {images:[{url}]} */
+  const url = (data && ((data.images && data.images[0] && data.images[0].url) ||
+    (data.data && data.data[0] && data.data[0].url))) || '';
+  if (!url) throw new ApiError(name + '没有返回图片地址。');
   return url;
+}
+
+/* 只有硅基流动的图床允许跨域读字节，能把图压成 data URL 长期留着。
+   ⚠️ 智谱的图床不回 CORS 头（见文件头说明），shrinkImage 必然失败 ——
+      而且它是「先 new Image 再 onerror」，等于白等一次失败请求。
+      所以智谱这条路**直接跳过压缩**，只存那个约 7 天有效的签名链接。 */
+async function shrinkIfPossible(url, maxPx, quality) {
+  if (imgProvider() === 'zhipu') return '';
+  return shrinkImage(url, maxPx, quality);
 }
 
 /* 菜品主图：640px / q82（卡片与详情页大图都用它）。
    ⚠️ 链接**会过期**，所以顺手写进本地缓存；能压就再存一份 data URL。 */
-async function sfGenerate(day) {
-  const url = await sfRequest(imgPrompt(day), imgSeed(day));
-  const dataUrl = await shrinkImage(url, 640, 0.82);
+async function imgGenerate(day) {
+  const url = await imgRequest(imgPrompt(day), imgSeed(day));
+  const dataUrl = await shrinkIfPossible(url, 640, 0.82);
   imgCachePut(day, url, dataUrl);
   return dataUrl || url;
 }
 
 /* 步骤示意图：更小更省 —— 560px / q80，一张约 50KB。
    步骤图张数是菜图的 6 倍，不压小一点 localStorage 很快就会满。 */
-async function sfGenerateStep(d, i, step) {
-  const url = await sfRequest(stepPrompt(d, step, i), stepSeed(d, i));
-  const dataUrl = await shrinkImage(url, 560, 0.80);
+async function imgGenerateStep(d, i, step) {
+  const url = await imgRequest(stepPrompt(d, step, i), stepSeed(d, i));
+  const dataUrl = await shrinkIfPossible(url, 560, 0.80);
   stepCachePut(d, i, step, url, dataUrl);
   return dataUrl || url;
 }
@@ -1947,7 +2025,7 @@ async function ensureAiImage(day) {
   if (hit) return hit;
   const k = imgCacheKey(day);
   if (imgInflight[k]) return imgInflight[k];
-  const p = sfGenerate(day);
+  const p = imgGenerate(day);
   imgInflight[k] = p;
   try { return await p; } finally { delete imgInflight[k]; }
 }
@@ -1963,56 +2041,86 @@ async function ensureAiImage(day) {
    ⚠️ 缓存与菜图**分开存**（state.stepCache）：见 state 里的说明。
    --------------------------------------------------------------------------- */
 
-/* 做法关键词 → 英文动作短语。
+/* 做法关键词 → 动作短语（**两列**：英文给硅基流动，中文给智谱 CogView）。
    为什么不直接 trEn() 翻步骤文字：步骤里会出现「抓匀」「沥干」「改刀」这类
-   IMG_EN 覆盖不到的动词，翻不干净就会留下汉字 —— 扩散模型对中文几乎不理解
-   （实测拿纯中文提示词要「烤青花鱼美食照」，出来是一张毫不相干的动漫人物）。
-   所以这里改成**按关键词匹配一组写死的英文动作**，保证一个汉字都不会漏出去。
+   IMG_EN 覆盖不到的动词，翻不干净就会留下汉字 —— 而**硅基流动**的扩散模型
+   对中文几乎不理解（实测拿纯中文提示词要「烤青花鱼美食照」，
+   出来是一张毫不相干的动漫人物）。所以英文那列改成**按关键词匹配写死的短语**，
+   保证一个汉字都不会漏出去。
+   智谱 CogView 反过来：国产模型，**中文提示词明显更好**（同菜 A/B 实测），
+   所以中文那列直接用中文写，不用翻译。
    ⚠️ 顺序有意义：先匹配到的先用，所以「调酱汁」要排在「拌」之前。 */
 const STEP_ACT = [
-  [/调.*酱|酱汁|调味汁|油醋汁|乳化|调好/, 'whisking a dressing in a small ceramic bowl'],
-  [/预热|提前把.*热/,                      'a lined baking tray and fresh ingredients ready on the kitchen counter'],
-  [/腌|入味|腌渍|抓匀/,                    'marinating the ingredients in a glass bowl'],
-  [/焯|白灼|汆|烫/,                        'blanching vegetables in a pot of boiling water'],
-  [/蒸/,                                   'steaming food in a bamboo steamer basket'],
-  [/烤|烤箱|空气炸/,                        'roasting food on a lined baking tray in the oven'],
-  [/炖|焖|煨|煮|熬/,                        'simmering food in a stainless steel pot'],
-  [/切|改刀|切块|切丝|切段|切片|剁/,         'chopping fresh ingredients on a wooden cutting board'],
-  [/洗|冲|沥干|擦干|浸泡/,                  'rinsing and draining fresh vegetables in a colander'],
-  [/拌|拌匀|沙拉|油醋/,                     'tossing a fresh salad in a mixing bowl'],
-  [/撕|拆|拨|刮/,                           'shredding cooked meat with two forks'],
-  [/淋|浇|撒|点缀|装饰/,                    'drizzling olive oil and sprinkling fresh herbs'],
-  [/摆|装盘|组装|盛|组合/,                  'plating the finished dish on a ceramic plate'],
-  [/冷藏|静置|放凉|冷却|醒/,                'a chilled bowl of food resting on a wooden table'],
-  [/铺|垫|进锅|下锅|放上|入盘/,              'arranging ingredients on a baking tray before cooking']
+  [/调.*酱|酱汁|调味汁|油醋汁|乳化|调好/, 'whisking a dressing in a small ceramic bowl', '在小碗里调好油醋汁'],
+  [/预热|提前把.*热/,                      'a lined baking tray and fresh ingredients ready on the kitchen counter', '烤箱预热，烤盘铺好油纸，食材备齐'],
+  [/腌|入味|腌渍|抓匀/,                    'marinating the ingredients in a glass bowl', '在玻璃碗里腌制食材'],
+  [/焯|白灼|汆|烫/,                        'blanching vegetables in a pot of boiling water', '把蔬菜放进沸水里焯烫'],
+  [/蒸/,                                   'steaming food in a bamboo steamer basket', '用蒸笼蒸食材'],
+  [/烤|烤箱|空气炸/,                        'roasting food on a lined baking tray in the oven', '把食材放在铺了油纸的烤盘上烤'],
+  [/炖|焖|煨|煮|熬/,                        'simmering food in a stainless steel pot', '在不锈钢锅里小火炖煮'],
+  [/切|改刀|切块|切丝|切段|切片|剁/,         'chopping fresh ingredients on a wooden cutting board', '在木质砧板上切食材'],
+  [/洗|冲|沥干|擦干|浸泡/,                  'rinsing and draining fresh vegetables in a colander', '用沥水篮冲洗并沥干蔬菜'],
+  [/拌|拌匀|沙拉|油醋/,                     'tossing a fresh salad in a mixing bowl', '在沙拉碗里拌匀'],
+  [/撕|拆|拨|刮/,                           'shredding cooked meat with two forks', '用两把叉子把肉撕成丝'],
+  [/淋|浇|撒|点缀|装饰/,                    'drizzling olive oil and sprinkling fresh herbs', '淋上橄榄油、撒上新鲜香草'],
+  [/摆|装盘|组装|盛|组合/,                  'plating the finished dish on a ceramic plate', '把做好的菜装盘'],
+  [/冷藏|静置|放凉|冷却|醒/,                'a chilled bowl of food resting on a wooden table', '食物静置放凉'],
+  [/铺|垫|进锅|下锅|放上|入盘/,              'arranging ingredients on a baking tray before cooking', '把食材铺在烤盘上准备下锅']
 ];
+const STEP_ACT_FALLBACK = ['preparing fresh ingredients on a wooden board', '在木质案板上处理新鲜食材'];
 
 /* ⚠️ 先看**步骤名**，匹配不到才退回看描述。
    把「名 + 描述」拼起来一起匹配会把「装盘」判成拌沙拉 ——
    因为描述里常写着「出锅后淋橄榄油，拌匀即可」，而「拌」在列表里排在「装盘」前面。
-   步骤名才是这一步真正在做什么。 */
-function stepAction(step) {
+   步骤名才是这一步真正在做什么。
+   lang: 'en'（默认，硅基流动）| 'zh'（智谱 CogView）。 */
+function stepAction(step, lang) {
+  const col = lang === 'zh' ? 2 : 1;
   const t = String((step && step.t) || '');
   const d = String((step && step.d) || '');
-  for (let i = 0; i < STEP_ACT.length; i++) if (STEP_ACT[i][0].test(t)) return STEP_ACT[i][1];
-  for (let i = 0; i < STEP_ACT.length; i++) if (STEP_ACT[i][0].test(d)) return STEP_ACT[i][1];
-  return 'preparing fresh ingredients on a wooden board';
+  for (let i = 0; i < STEP_ACT.length; i++) if (STEP_ACT[i][0].test(t)) return STEP_ACT[i][col];
+  for (let i = 0; i < STEP_ACT.length; i++) if (STEP_ACT[i][0].test(d)) return STEP_ACT[i][col];
+  return STEP_ACT_FALLBACK[col - 1];
 }
 
-/* 步骤提示词：**全英文**（同 imgPrompt 的理由）。
+/* 步骤提示词 —— 英文版：**全英文**（同 imgPromptEN 的理由）。
    动作短语是写死的英文，菜品与食材走 trEn()，拼起来不会出现汉字。 */
-function stepPrompt(day, step, i) {
+function stepPromptEN(day, step, i) {
   const ing = (day.ing || []).filter((x) => x.c !== 'season').slice(0, 5)
     .map((x) => trEn(x.n)).filter(Boolean);
   return [
     'Professional food photography, close-up shot of one cooking step, natural side light, ' +
       'rustic wooden kitchen surface, soft shadows, clean uncluttered background.',
-    'Cooking step ' + (i + 1) + ' of a Mediterranean healthy lunch: ' + stepAction(step) + '.',
+    'Cooking step ' + (i + 1) + ' of a Mediterranean healthy lunch: ' + stepAction(step, 'en') + '.',
     'Dish being prepared: ' + trEn(day.title || '') + (day.sub ? ', ' + trEn(day.sub) : '') + '.',
     'Ingredients on the counter: ' + ing.join(', ') + '.',
     'Realistic home cooking, fresh natural colors, appetizing.',
     'No text, no letters, no numbers, no logo, no watermark, no people, no hands.'
   ].join('\n');
+}
+
+/* 步骤提示词 —— 中文版（智谱 CogView 用）。
+   菜品 / 食材 / 做法本来就是中文，直接用，不需要任何翻译。 */
+function stepPromptCN(day, step, i) {
+  const ing = [];
+  (day.ing || []).forEach((x) => {
+    if (x.c === 'season') return;
+    const n = stripParen(String(x.n || ''));
+    if (n && ing.indexOf(n) < 0) ing.push(n);
+  });
+  return [
+    '美食摄影：特写镜头，只拍一个烹饪步骤，自然侧光，木质厨房台面，柔和阴影，背景干净整洁。',
+    '地中海健康午餐的第 ' + (i + 1) + ' 步：' + stepAction(step, 'zh') + '。',
+    '正在做的菜：' + (day.title || '') + (day.sub ? '，' + day.sub : '') + '。',
+    '台面上的食材：' + ing.slice(0, 5).join('、') + '。',
+    '家庭真实烹饪，色彩新鲜自然，看着有食欲。',
+    '画面中不要出现文字、字母、数字、logo、水印、人物或手。'
+  ].join('\n');
+}
+
+/* 步骤提示词：按供应商选语言（见文件头的 A/B 结论）。 */
+function stepPrompt(day, step, i) {
+  return imgLang() === 'zh' ? stepPromptCN(day, step, i) : stepPromptEN(day, step, i);
 }
 
 /* 每一步一个种子：同一步稳定出同一张图，不同步之间又互相区分。 */
@@ -2028,7 +2136,7 @@ function stepCacheGet(day, i, step) {
   const e = state.stepCache[stepCacheKey(day, i, step)];
   if (!e) return '';
   if (e.d) return e.d;                                     // 压好的小图，永不过期
-  if (e.u && Date.now() - (e.t || 0) < IMG_SF_TTL) return e.u;
+  if (e.u && Date.now() - (e.t || 0) < imgTtl()) return e.u;
   return '';
 }
 function stepCachePut(day, i, step, url, dataUrl) {
@@ -2056,7 +2164,7 @@ async function ensureStepImage(d, i) {
   if (hit) return hit;
   const k = stepCacheKey(d, i, step);
   if (stepInflight[k]) return stepInflight[k];
-  const p = sfGenerateStep(d, i, step);
+  const p = imgGenerateStep(d, i, step);
   stepInflight[k] = p;
   try { return await p; } finally { delete stepInflight[k]; }
 }
@@ -2424,7 +2532,17 @@ function trEn(s) {
   return out.replace(/[（）]/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-function imgPrompt(day) {
+/* 提示词语言跟着供应商走（见文件头 A/B 结论）：
+   智谱 CogView 是国产模型，**中文明显更好**；硅基流动的 Z-Image / Qwen
+   是通义系，实测中文会糊，必须全英文。 */
+function imgLang() { return imgProvider() === 'zhipu' ? 'zh' : 'en'; }
+
+/* 去掉「糙米（生）」这种括号补充 —— 提示词里留着只会干扰模型 */
+function stripParen(s) { return String(s || '').replace(/[(（].*?[)）]/g, '').trim(); }
+
+/* 菜品提示词 —— 英文版（硅基流动用）。刻意写得具体（餐盘/光线/角度/食材清单），
+   否则模型容易画出「一坨看不出是什么的东西」。 */
+function imgPromptEN(day) {
   const ing = (day.ing || []).filter((i) => i.c !== 'season').slice(0, 7)
     .map((i) => trEn(i.n)).filter(Boolean);
   const lines = [
@@ -2436,6 +2554,33 @@ function imgPrompt(day) {
     'No text, no letters, no numbers, no logo, no watermark, no people, no hands.'
   ];
   return lines.join('\n');
+}
+
+/* 菜品提示词 —— 中文版（智谱 CogView 用）。
+   与后端 app/images.py 的 build_prompt() 保持同一套写法（那边实测出图很讨喜）：
+   先给机位/餐具/光线，再给菜名与食材，最后明确「不要文字人物」。
+   食材去重 + 截断到 7 项 —— 太长反而让模型失焦。 */
+function imgPromptCN(day) {
+  const names = [];
+  (day.ing || []).forEach((x) => {
+    if (x.c === 'season') return;
+    const n = stripParen(x.n);
+    if (n && names.indexOf(n) < 0) names.push(n);
+  });
+  const parts = [
+    '美食摄影：45 度俯拍，白色哑光圆餐盘，浅色大理石桌面，自然侧光，柔和阴影，高清细节，餐厅菜单质感。'
+  ];
+  if (day.title) parts.push('菜品：' + day.title + '。');
+  if (day.sub) parts.push('说明：' + day.sub + '。');
+  if (names.length) parts.push('主要食材：' + names.slice(0, 7).join('、') + '。');
+  if (day.method) parts.push('烹饪方式：' + day.method + '。');
+  parts.push('要求：食材形态真实可辨，摆盘整洁自然，一人份量；画面中不要出现文字、logo、人物或手。');
+  return parts.join('');
+}
+
+/* 菜品提示词：按供应商选语言。 */
+function imgPrompt(day) {
+  return imgLang() === 'zh' ? imgPromptCN(day) : imgPromptEN(day);
 }
 
 /* =========================================================================
@@ -3755,15 +3900,18 @@ function renderSetup() {
       '<div class="hint">只有 glm-4.7 是旗舰级；<b>glm-4.7-flash 永久免费</b>，公开分享时用它最划算。' +
       '以上都支持联网检索。换模型只影响之后新生成的菜谱，已生成的不会重算。</div></div>' +
       (USE_BACKEND ? '' :
-        '<div class="setrow"><label for="ik">SiliconFlow API Key（AI 配图用）</label>' +
-        '<input id="ik" type="password" placeholder="格式：sk-xxxxxxxx…" value="' + esc(ownImgKey) + '">' +
-        '<div class="hint">保存在浏览器本地（localStorage），不会上传到任何服务器。' +
-        '留空则使用页面内置的 Key。获取地址：硅基流动 cloud.siliconflow.cn → API 密钥。</div></div>' +
         '<div class="setrow"><label for="im">AI 配图模型</label>' +
-        '<select id="im">' + IMG_SF_MODELS.map((m) => opt(m.id, imgModel(), m.n)).join('') + '</select>' +
-        '<div class="hint">⚠️ <b>FLUX 已在硅基流动下架</b>（实测返回 Model disabled），' +
-        '所以默认用 <b>Z-Image-Turbo</b>：快、稳、食物摄影效果好。' +
-        'Qwen-Image 细节最好，但更慢、图也更大。换模型后已生成的图会重新画。</div></div>') +
+        '<select id="im">' + IMG_MODELS.map((m) => opt(m.id, imgModel(), m.n)).join('') + '</select>' +
+        '<div class="hint">默认 <b>CogView-3-Flash</b>：<b>智谱免费模型</b>，' +
+        '和主厨对话共用同一把 Key，<b>打开即用、不额外花钱</b>' +
+        '（图右下角有「AI生成」水印，是《人工智能生成合成内容标识办法》的要求，别去掉）。' +
+        '想换成硅基流动的模型，需要在下面填它的 Key 并保证<b>账户有余额</b> —— ' +
+        '实测余额为 0 时一张图都出不来。换模型后已生成的图会重新画。</div></div>' +
+        '<div class="setrow"><label for="ik">SiliconFlow API Key（只给硅基流动的模型用）</label>' +
+        '<input id="ik" type="password" placeholder="格式：sk-xxxxxxxx…" value="' + esc(ownImgKey) + '">' +
+        '<div class="hint">选智谱模型（默认）时<b>不需要填</b>这一项 —— 智谱那把 Key 就是主厨用的那把。' +
+        '保存在浏览器本地（localStorage），不会上传到任何服务器。' +
+        '获取地址：硅基流动 cloud.siliconflow.cn → API 密钥。</div></div>') +
       '<div class="setrow"><label for="si">详细做法的步骤配图</label>' +
       '<select id="si">' +
         /* ⚠️ 第二个 opt 原来也传 state.stepImg ? '1' : '0' —— 开启时两个选项都带
@@ -3800,16 +3948,20 @@ function renderSetup() {
     '</ul></div>';
 
   html += '<div class="card ab" style="margin-top:16px"><h4>关于配图</h4><ul>' +
-    '<li>配图由 <b>' + esc(imgModel()) + '</b> 生成（硅基流动 SiliconFlow）。' +
-    '⚠️ 原本想用的 <b>FLUX 已经下架</b>，现在默认 Z-Image-Turbo —— 快、稳、食物摄影效果好。' +
-    '模型可在上面切换。</li>' +
-    '<li>⚠️ SiliconFlow 是<b>付费接口</b>（新账号有一点赠送额度）：<b>余额不足时一张图都出不来</b>。' +
-    '真遇到时页面会提示「账户余额不足」，去官网充值后重新生成即可。</li>' +
+    '<li>配图由 <b>' + esc(imgModel()) + '</b> 生成' +
+    (imgProvider() === 'sf' ? '（硅基流动 SiliconFlow）。' : '（智谱 AI CogView，<b>免费模型</b>）。') +
+    '默认是 <b>CogView-3-Flash</b>：免费、和主厨共用同一把 Key、打开即用。模型可在上面切换。</li>' +
+    '<li>⚠️ 智谱的图<b>右下角自带「AI生成」水印</b>，这是法规要求、不要去掉。' +
+    '换成硅基流动的模型就没有水印，但那一路要<b>账户有余额</b>（付费接口）。</li>' +
     (USE_BACKEND
       ? '<li>图片链接带签名、有效期约 7 天，所以本页缓存的是<b>链接</b>而不是图片本身。</li>'
-      : '<li>硅基流动返回的图片链接<b>会过期</b>（Z-Image / Qwen 约 24 小时，Kolors 只有 1 小时），' +
-        '所以本页会把图<b>压成小图存进浏览器本地</b>（data URL，永不过期）；' +
-        '取不到字节时退化成「存链接 + 过期后重新画」。</li>') +
+      : (imgProvider() === 'sf'
+        ? '<li>硅基流动返回的图片链接<b>会过期</b>（Z-Image / Qwen 约 24 小时，Kolors 只有 1 小时），' +
+          '所以本页会把图<b>压成小图存进浏览器本地</b>（data URL，永不过期）；' +
+          '取不到字节时退化成「存链接 + 过期后重新画」。</li>'
+        : '<li>智谱返回的是<b>签名链接</b>（约 7 天有效）。它的图床<b>不允许跨域读取</b>，' +
+          '所以本页只能缓存<b>链接</b>、不能像硅基流动那样把图存进浏览器 —— ' +
+          '链接过期后会自动重新生成（免费，只是要等几秒）。</li>')) +
     '<li>页面会在配图上标注「AI 生成配图」，这是法规与诚信要求，请勿去除。</li>' +
     '<li><b>做法链接</b>仍来自 TheMealDB 检索：命中同做法的菜谱给原文与 YouTube 演示，' +
     '抖音 / 小红书 / B站 / 下厨房 给搜索深链。<b>只取链接，不取它的照片。</b></li></ul></div>';
@@ -5189,14 +5341,15 @@ window.HL = {
   humanErr, errBarHTML,
   pickFromSheet, customFromSheet, changeServ, setServ, testKey, toast,
   DEFAULT_KEY, API_BASE, LS, IMG_TTL, chatJson, post, generateDay, generateImage,
-  IMG_MODEL, IMG_API, imgUrlFor, imgSeed, preloadImage, shopServings,
+  IMG_MODEL, imgUrlFor, imgSeed, preloadImage, shopServings,
   imgDisplaySrc, isDataUrl, revealReadyImages,
   shuffledDayPlan, MEAT_ROTATION, prefetchDayImage, waitPrefetch,
   imgPreState: () => ({ total: imgPreTotal, done: imgPreDone,
                         pending: imgQueue.filter((j) => j.prefetch).length }),
-  DEFAULT_IMG_KEY, IMG_SF_BASE, IMG_SF_API, IMG_SF_MODELS, IMG_SF_DEFAULT,
-  IMG_SF_TTL, IMG_SF_STEPS, imgKey, imgModel, imgSize, imgHash,
-  imgCacheKey, imgCacheGet, imgCachePut, sfGenerate, ensureAiImage, shrinkImage, writeImgCache,
+  DEFAULT_IMG_KEY, IMG_ZHIPU_API, IMG_SF_BASE, IMG_SF_API, IMG_MODELS, IMG_DEFAULT,
+  IMG_TTL_SF, IMG_TTL_ZHIPU, IMG_SF_STEPS, imgKey, imgKeyFor, imgProvider, imgApi, imgTtl,
+  imgModel, imgSize, imgHash, imgLang, imgPromptEN, imgPromptCN, stepPromptEN, stepPromptCN,
+  imgCacheKey, imgCacheGet, imgCachePut, imgGenerate, ensureAiImage, shrinkImage, writeImgCache,
   flushCacheWrites, observeStepImages, queueStepImage, noteImgErr,
   /* 做法链接（供测试与调试）—— 真实照片已下线，只留检索侧 */
   MEAL_API, MEAL_SITE, realQueries, lookupRealDish, lookupRealDetail, realCurrent,
