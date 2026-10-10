@@ -2284,7 +2284,7 @@ async function loadOneImage(job) {
     const step = d && (d.steps || [])[job.stepIdx];
     if (!d || !step) return;
     /* ⚠️ 生成过程中别给**内置保底菜单**出图（见下面菜图分支的同款说明）。 */
-    if (state.busy && !d.img_seed) return;
+    if (state.busy && isFallback(state.plan)) return;
     try { url = await ensureStepImage(d, job.stepIdx); } catch (e) { url = ''; }
     if (!url) {
       /* 生成失败（没 Key / 限流 / 上游故障）→ 收起骨架屏，
@@ -2303,10 +2303,13 @@ async function loadOneImage(job) {
     /* ⚠️ 生成菜单期间**不要**给「屏幕上这份即将被替换的内容」出图。
        此时 state.menus[plan] 还没赋值，首页渲染的其实是**内置保底菜单**；
        给保底菜出图纯属白烧额度（用户几秒后就看到新菜单了），而且保底菜
-       没有 img_seed → 缓存键按菜名派生 → 跟预取的那张对不上，等于白出一张。
-       判据就是 img_seed：生成出来的菜一定有，保底菜一定没有。
-       生成结束后 render() 会重新排队，那时才真正按新菜单出图。 */
-    if (state.busy && !d.img_seed) return;
+       的缓存键跟预取的那张对不上，等于白出一张。
+       判据用 isFallback(state.plan) —— 直接问「当前显示的是不是内置保底菜单」。
+       ⚠️ 原来这里写的是 `!d.img_seed`（「保底菜一定没有种子」），那是个**假设**：
+          一旦哪天保底数据带上 img_seed（或测试改脏了它），判断就失效、
+          开始给保底菜白出图。isFallback 不依赖数据长什么样，是真正的判据。
+       生成结束后 state.menus[plan] 有值 → isFallback 变假 → 那时才真正按新菜单出图。 */
+    if (state.busy && isFallback(state.plan)) return;
     try { url = await ensureAiImage(d); } catch (e) { url = ''; }
   }
   if (!url || !job.el.isConnected) return;
@@ -2761,17 +2764,20 @@ function recipeLinksHTML(day, real) {
 }
 
 /* 详情页要显示 YouTube / 原站链接，得再取一次详情。
-   按「当前展示的候选 id」判断是否已取过，切页会自动重取。
+   按「当前展示的候选 id」判断是否已取过，切天会自动重取。
 
-   ⚠️ 这里的守卫原来是 `state.imgSrc !== 'real'`（只有「真实照片」模式才去取详情）。
-      2026-10-09 真实照片下线时把 state.imgSrc 整个删掉了 → 那个判断变成
-      `undefined !== 'real'` = 恒真 → 这个函数**永远提前返回**，详情再也取不到，
-      详情页的「YouTube 演示」「菜谱原始出处」两个链接就凭空消失了。
-      现在 d.real 的唯一用途就是喂「做法链接」，所以详情照取。 */
+   ⚠️ 这里踩过**同一类 bug 的第二次**（第一次见 state.imgSrc）：
+     守卫原来是 `state.view !== 'day'`，但 2026-10-09 首页改版后
+     首页**就是**当日菜谱全文，`state.view` 只剩 `home|shop|setup`，
+     再也没有 `'day'` 这个值了 → 判断恒真 → 这个函数**永远提前返回** →
+       「YouTube 演示」「菜谱原始出处」两个链接**从来就没被取到过**。
+     同理，`state.dayId` 首屏是 null（用户没点过星期按钮），
+     直接 `day(plan, null)` 拿到 undefined，也一样是静默不取。
+     所以：视图判 `home`，日期一律走 `selectedDayId()`（与首页渲染同一套优先级）。 */
 let detBusy = false;
 async function ensureRealDetail() {
-  if (USE_BACKEND || state.view !== 'day' || detBusy) return;
-  const d = day(state.plan, state.dayId);
+  if (USE_BACKEND || state.view !== 'home' || detBusy) return;
+  const d = day(state.plan, selectedDayId());
   const pick = realCurrent(d);
   if (!pick || (d.real.det && d.real.det.id === pick.id)) return;
   detBusy = true;
